@@ -281,11 +281,21 @@ function saveSession(userId, session) {
     }
 }
 
-// Обработка голосовых сообщений
+// Обработка всех входящих сообщений
+bot.on('message', async (ctx) => {
+    console.log('=== Входящее сообщение ===');
+    console.log('Тип сообщения:', ctx.message ? Object.keys(ctx.message).filter(key => key !== 'from' && key !== 'chat' && key !== 'date') : 'неизвестно');
+    console.log('От пользователя:', ctx.from.id);
+    console.log('Данные сообщения:', JSON.stringify(ctx.message, null, 2));
+    console.log('========================');
+});
+
+// Обработчик голосовых сообщений
 bot.on('voice', async (ctx) => {
     console.log('=== VOICE MESSAGE START ===');
     console.log('Получено голосовое сообщение от:', ctx.from.id);
     console.log('Длина сообщения:', ctx.message.voice.duration, 'секунд');
+    console.log('Полные данные голосового сообщения:', JSON.stringify(ctx.message.voice, null, 2));
     
     try {
         const session = getSession(ctx.from.id);
