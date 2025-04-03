@@ -173,7 +173,7 @@ async function applyAudioFilter(inputFile, filterType) {
         
         // Применяем фильтр
         console.log('Применяю фильтр в Cloudinary...');
-        const result = await cloudinary.video(uploadResult.public_id, {
+        const result = await cloudinary.url(uploadResult.public_id, {
             resource_type: 'video',
             format: 'ogg',
             audio_codec: 'libvorbis',
@@ -181,12 +181,21 @@ async function applyAudioFilter(inputFile, filterType) {
         });
         console.log('Фильтр применен, URL результата:', result);
         
+        // Проверяем, что URL корректный
+        if (!result || !result.startsWith('http')) {
+            throw new Error('Получен некорректный URL от Cloudinary');
+        }
+        
         // Скачиваем обработанный файл
         console.log('Скачиваю обработанный файл...');
         const response = await axios({
             method: 'GET',
             url: result,
-            responseType: 'stream'
+            responseType: 'stream',
+            maxRedirects: 5,
+            validateStatus: function (status) {
+                return status >= 200 && status < 300;
+            }
         });
         
         const outputFile = path.join(tempDir, `processed_${path.basename(inputFile)}`);
@@ -437,6 +446,8 @@ bot.command('help', async (ctx) => {
 bot.on('callback_query', async (ctx) => {
     console.log('=== Начало обработки callback запроса ===');
     console.log('Callback данные:', JSON.stringify(ctx.callbackQuery, null, 2));
+    console.log('От пользователя ID:', ctx.from.id);
+    console.log('Имя пользователя:', ctx.from.username);
     
     try {
         const data = ctx.callbackQuery.data;
@@ -455,14 +466,36 @@ bot.on('callback_query', async (ctx) => {
             // Отвечаем на callback запрос
             await ctx.answerCbQuery(`Выбран эффект: ${filterType}`);
             
-            // Если это inline запрос, отправляем сообщение в личку
-            if (ctx.callbackQuery.inline_message_id) {
-                console.log('Это inline запрос, отправляю сообщение в личку');
-                await ctx.telegram.sendMessage(ctx.from.id, '🎤 Пожалуйста, отправьте голосовое сообщение для обработки в личном чате с ботом');
-            } else {
-                // Если это обычный запрос, отправляем сообщение в текущий чат
-                console.log('Это обычный запрос, отправляю сообщение в текущий чат');
-                await ctx.reply('🎤 Пожалуйста, отправьте голосовое сообщение для обработки');
+            try {
+                // Если это inline запрос, отправляем сообщение в личку
+                if (ctx.callbackQuery.inline_message_id) {
+                    console.log('Это inline запрос, отправляю сообщение в личку пользователю', ctx.from.id);
+                    const message = await ctx.telegram.sendMessage(
+                        ctx.from.id, 
+                        '🎤 Пожалуйста, отправьте голосовое сообщение для обработки в личном чате с ботом.\n\nЕсли вы видите это сообщение, значит бот готов принять голосовое сообщение.'
+                    );
+                    console.log('Сообщение успешно отправлено:', message);
+                } else {
+                    // Если это обычный запрос, отправляем сообщение в текущий чат
+                    console.log('Это обычный запрос, отправляю сообщение в текущий чат');
+                    const message = await ctx.reply('🎤 Пожалуйста, отправьте голосовое сообщение для обработки');
+                    console.log('Сообщение успешно отправлено:', message);
+                }
+            } catch (messageError) {
+                console.error('Ошибка при отправке сообщения:', messageError);
+                console.error('Стек ошибки сообщения:', messageError.stack);
+                
+                if (messageError.description && messageError.description.includes('bot can\'t initiate conversation')) {
+                    await ctx.answerCbQuery(
+                        'Пожалуйста, сначала начните диалог с ботом, нажав кнопку START',
+                        { show_alert: true }
+                    );
+                } else {
+                    await ctx.answerCbQuery(
+                        'Произошла ошибка. Пожалуйста, перейдите в личный чат с ботом и попробуйте снова',
+                        { show_alert: true }
+                    );
+                }
             }
         }
     } catch (error) {
