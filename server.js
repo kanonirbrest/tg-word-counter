@@ -456,8 +456,20 @@ const startBot = async () => {
         }
 
         console.log('Запускаю бота...');
-        await bot.launch();
-        console.log('Бот успешно запущен');
+        try {
+            await bot.launch();
+            console.log('Бот успешно запущен');
+        } catch (error) {
+            if (error.description && error.description.includes('Conflict: terminated by other getUpdates request')) {
+                console.log('Обнаружен конфликт с другим экземпляром бота. Пробую перезапустить...');
+                // Ждем 5 секунд перед повторной попыткой
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                await bot.launch();
+                console.log('Бот успешно перезапущен');
+            } else {
+                throw error;
+            }
+        }
     } catch (error) {
         console.error('Ошибка при запуске бота:', error);
         process.exit(1);
