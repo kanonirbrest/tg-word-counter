@@ -328,25 +328,34 @@ bot.on('message', async (ctx) => {
             // Скачиваем голосовое сообщение
             console.log('\n=== Начало обработки голосового сообщения ===');
             console.log('Скачиваю голосовое сообщение...');
+            
+            // Получаем информацию о файле
             const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
+            console.log('Информация о файле:', JSON.stringify(file, null, 2));
+            
             const filePath = file.file_path;
             const fileName = path.join(tempDir, `${ctx.message.voice.file_id}.ogg`);
             
             console.log('Путь к файлу:', filePath);
             console.log('Сохраняю в:', fileName);
             
+            // Скачиваем файл
             const response = await axios({
                 method: 'GET',
                 url: `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`,
                 responseType: 'stream'
             });
             
+            console.log('Файл успешно скачан, размер:', response.headers['content-length'], 'байт');
+            
             const writer = fs.createWriteStream(fileName);
             response.data.pipe(writer);
             
             await new Promise((resolve, reject) => {
                 writer.on('finish', () => {
-                    console.log('✅ Файл успешно скачан');
+                    console.log('✅ Файл успешно сохранен на диск');
+                    const stats = fs.statSync(fileName);
+                    console.log('Размер сохраненного файла:', stats.size, 'байт');
                     resolve();
                 });
                 writer.on('error', (err) => {
@@ -378,6 +387,8 @@ bot.on('message', async (ctx) => {
             console.error('Стек ошибки:', error.stack);
             await ctx.reply('Произошла ошибка при обработке голосового сообщения');
         }
+    } else {
+        console.log('Сообщение не содержит голосового сообщения');
     }
     
     console.log('\n****************************************');
