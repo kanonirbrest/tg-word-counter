@@ -256,13 +256,24 @@ function saveSession(userId, session) {
 
 // Обработка всех входящих сообщений
 bot.on('message', async (ctx) => {
-    console.log('=== Входящее сообщение ===');
+    console.log('\n=== НОВОЕ СООБЩЕНИЕ ===');
+    console.log('Время получения:', new Date().toISOString());
     console.log('Тип сообщения:', ctx.message ? Object.keys(ctx.message).filter(key => key !== 'from' && key !== 'chat' && key !== 'date') : 'неизвестно');
     console.log('От пользователя:', ctx.from.id);
     console.log('В чате:', ctx.chat.id);
     console.log('Тип чата:', ctx.chat.type);
+    
+    // Проверяем наличие голосового сообщения
+    if (ctx.message.voice) {
+        console.log('!!! ОБНАРУЖЕНО ГОЛОСОВОЕ СООБЩЕНИЕ !!!');
+        console.log('Длина сообщения:', ctx.message.voice.duration, 'секунд');
+        console.log('File ID:', ctx.message.voice.file_id);
+        console.log('MIME тип:', ctx.message.voice.mime_type);
+        console.log('Полные данные голосового сообщения:', JSON.stringify(ctx.message.voice, null, 2));
+    }
+    
     console.log('Данные сообщения:', JSON.stringify(ctx.message, null, 2));
-    console.log('========================');
+    console.log('========================\n');
 
     // Если это голосовое сообщение, обрабатываем его
     if (ctx.message.voice) {
