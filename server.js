@@ -1,211 +1,204 @@
 const express = require('express');
 const { Telegraf } = require('telegraf');
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const ffmpeg = require('fluent-ffmpeg');
 require('dotenv').config();
 
 const app = express();
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// Функция для подсчета частоты слов
-function getWordFrequency(text) {
+// Создаем временную директорию для аудиофайлов, если её нет
+const tempDir = path.join(__dirname, 'temp');
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir);
+}
+
+// Функция для скачивания файла
+async function downloadFile(fileId, fileName) {
   try {
-    // Приводим текст к нижнему регистру и разбиваем на слова
-    const words = text.toLowerCase()
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '') // Удаляем специальные символы
-      .split(/\s+/)
-      .filter(word => word.length > 2); // Игнорируем слова короче 3 букв
-
-    // Подсчитываем частоту каждого слова
-    const frequency = {};
-    words.forEach(word => {
-      frequency[word] = (frequency[word] || 0) + 1;
+    const file = await bot.telegram.getFile(fileId);
+    const filePath = file.file_path;
+    const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`;
+    
+    const response = await axios({
+      method: 'GET',
+      url: url,
+      responseType: 'stream'
     });
-
-    // Сортируем слова по частоте
-    const sortedWords = Object.entries(frequency)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 15); // Берем топ-15
-
-    return { success: true, data: sortedWords };
+    
+    const writer = fs.createWriteStream(fileName);
+    response.data.pipe(writer);
+    
+    return new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
   } catch (error) {
-    console.error('Ошибка при подсчете частоты слов:', error);
-    return { success: false, error: 'Не удалось проанализировать текст' };
+    console.error('Ошибка при скачивании файла:', error);
+    throw error;
   }
 }
 
-// Функция для получения сообщений из чата за определенный период
-async function getChatMessages(ctx, period) {
-  try {
-    const chatId = ctx.chat.id;
-    const now = Date.now();
-    let startTime;
+// Функция для применения аудиофильтра
+async function applyAudioFilter(inputFile, outputFile, filterType) {
+  return new Promise((resolve, reject) => {
+    let command = ffmpeg(inputFile);
     
-    // Определяем период
-    switch(period) {
-      case 'day':
-        startTime = now - 24 * 60 * 60 * 1000; // 24 часа
+    // Выбираем фильтр в зависимости от типа
+    switch (filterType) {
+      case 'bass':
+        command = command.audioFilters('bass=g=5');
         break;
-      case 'week':
-        startTime = now - 7 * 24 * 60 * 60 * 1000; // 7 дней
+      case 'treble':
+        command = command.audioFilters('treble=g=5');
         break;
-      case 'month':
-        startTime = now - 30 * 24 * 60 * 60 * 1000; // 30 дней
+      case 'echo':
+        command = command.audioFilters('aecho=0.8:0.5:6:0.4');
+        break;
+      case 'reverb':
+        command = command.audioFilters('areverse,aecho=0.8:0.5:6:0.4,areverse');
+        break;
+      case 'speed':
+        command = command.audioFilters('atempo=1.5');
         break;
       default:
-        throw new Error('Неверный период');
+        command = command.audioFilters('volume=2');
     }
-
-    // Получаем сообщения из чата
-    const messages = await ctx.telegram.getChat(chatId);
-    if (!messages) {
-      throw new Error('Не удалось получить информацию о чате');
-    }
-
-    // Получаем последние сообщения
-    const updates = await ctx.telegram.getUpdates({
-      offset: -1,
-      limit: 100,
-      timeout: 0
-    });
-
-    // Фильтруем сообщения по чату и времени
-    const chatMessages = updates
-      .filter(update => update.message && update.message.chat.id === chatId)
-      .map(update => update.message)
-      .filter(msg => {
-        const msgDate = msg.date * 1000;
-        return msgDate >= startTime && msgDate <= now;
-      });
-
-    // Собираем текст из сообщений
-    const text = chatMessages
-      .map(msg => msg.text || '')
-      .filter(text => text.length > 0)
-      .join(' ');
-
-    if (text.length === 0) {
-      return { 
-        success: false, 
-        error: 'За выбранный период сообщений не найдено'
-      };
-    }
-
-    return { success: true, data: text };
-  } catch (error) {
-    console.error('Ошибка при получении сообщений:', error);
-    return { 
-      success: false, 
-      error: 'Не удалось получить сообщения из чата. Убедитесь, что бот является администратором чата.'
-    };
-  }
+    
+    command
+      .output(outputFile)
+      .on('end', () => {
+        resolve();
+      })
+      .on('error', (err) => {
+        reject(err);
+      })
+      .run();
+  });
 }
 
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
   const query = ctx.inlineQuery.query;
   
-  if (query) {
-    // Определяем период анализа
-    let period;
-    if (query.includes('день') || query.includes('дня')) {
-      period = 'day';
-    } else if (query.includes('неделя') || query.includes('неделю')) {
-      period = 'week';
-    } else if (query.includes('месяц') || query.includes('месяца')) {
-      period = 'month';
-    } else {
-      period = 'day'; // По умолчанию анализируем за день
+  // Показываем доступные фильтры
+  await ctx.answerInlineQuery([
+    {
+      type: 'article',
+      id: '1',
+      title: 'Усилить бас',
+      description: 'Наложить фильтр усиления баса на голосовое сообщение',
+      input_message_content: {
+        message_text: '🎵 Выберите голосовое сообщение и нажмите на кнопку "Усилить бас"'
+      }
+    },
+    {
+      type: 'article',
+      id: '2',
+      title: 'Усилить высокие частоты',
+      description: 'Наложить фильтр усиления высоких частот на голосовое сообщение',
+      input_message_content: {
+        message_text: '🎵 Выберите голосовое сообщение и нажмите на кнопку "Усилить высокие частоты"'
+      }
+    },
+    {
+      type: 'article',
+      id: '3',
+      title: 'Добавить эхо',
+      description: 'Наложить фильтр эхо на голосовое сообщение',
+      input_message_content: {
+        message_text: '🎵 Выберите голосовое сообщение и нажмите на кнопку "Добавить эхо"'
+      }
+    },
+    {
+      type: 'article',
+      id: '4',
+      title: 'Добавить реверберацию',
+      description: 'Наложить фильтр реверберации на голосовое сообщение',
+      input_message_content: {
+        message_text: '🎵 Выберите голосовое сообщение и нажмите на кнопку "Добавить реверберацию"'
+      }
+    },
+    {
+      type: 'article',
+      id: '5',
+      title: 'Ускорить воспроизведение',
+      description: 'Ускорить воспроизведение голосового сообщения',
+      input_message_content: {
+        message_text: '🎵 Выберите голосовое сообщение и нажмите на кнопку "Ускорить воспроизведение"'
+      }
+    },
+    {
+      type: 'article',
+      id: '6',
+      title: 'Усилить громкость',
+      description: 'Усилить громкость голосового сообщения',
+      input_message_content: {
+        message_text: '🎵 Выберите голосовое сообщение и нажмите на кнопку "Усилить громкость"'
+      }
     }
+  ]);
+});
 
-    // Получаем сообщения из чата
-    const messagesResult = await getChatMessages(ctx, period);
+// Обработка голосовых сообщений
+bot.on('voice', async (ctx) => {
+  try {
+    const voice = ctx.message.voice;
+    const fileId = voice.file_id;
+    const fileName = `${Date.now()}_${fileId}.ogg`;
+    const inputPath = path.join(tempDir, fileName);
+    const outputPath = path.join(tempDir, `processed_${fileName}`);
     
-    if (messagesResult.success) {
-      // Анализируем текст
-      const result = getWordFrequency(messagesResult.data);
-      
-      if (result.success) {
-        let response = `📊 Топ-15 самых частых слов за ${period === 'day' ? 'день' : period === 'week' ? 'неделю' : 'месяц'}:\n\n`;
-        result.data.forEach(([word, count], index) => {
-          response += `${index + 1}. "${word}" - ${count} раз\n`;
-        });
-
-        await ctx.answerInlineQuery([
-          {
-            type: 'article',
-            id: '1',
-            title: 'Анализ сообщений',
-            description: `Показать топ-15 самых частых слов за ${period === 'day' ? 'день' : period === 'week' ? 'неделю' : 'месяц'}`,
-            input_message_content: {
-              message_text: response
-            }
-          }
-        ]);
-      } else {
-        await ctx.answerInlineQuery([
-          {
-            type: 'article',
-            id: '1',
-            title: 'Ошибка анализа',
-            description: 'Не удалось проанализировать текст',
-            input_message_content: {
-              message_text: '❌ ' + result.error
-            }
-          }
-        ]);
-      }
-    } else {
-      await ctx.answerInlineQuery([
-        {
-          type: 'article',
-          id: '1',
-          title: 'Ошибка получения сообщений',
-          description: 'Не удалось получить сообщения из чата',
-          input_message_content: {
-            message_text: '❌ ' + messagesResult.error
-          }
-        }
-      ]);
+    // Отправляем сообщение о начале обработки
+    const processingMsg = await ctx.reply('🎵 Обрабатываю голосовое сообщение...');
+    
+    // Скачиваем голосовое сообщение
+    await downloadFile(fileId, inputPath);
+    
+    // Определяем тип фильтра из текста сообщения
+    let filterType = 'volume'; // По умолчанию усиливаем громкость
+    const text = ctx.message.text || '';
+    
+    if (text.includes('бас')) {
+      filterType = 'bass';
+    } else if (text.includes('высок')) {
+      filterType = 'treble';
+    } else if (text.includes('эхо')) {
+      filterType = 'echo';
+    } else if (text.includes('реверб')) {
+      filterType = 'reverb';
+    } else if (text.includes('ускор')) {
+      filterType = 'speed';
     }
-  } else {
-    await ctx.answerInlineQuery([
-      {
-        type: 'article',
-        id: '1',
-        title: 'Анализ за день',
-        description: 'Показать топ-15 слов за последние 24 часа',
-        input_message_content: {
-          message_text: '📊 Анализ сообщений за последние 24 часа...'
-        }
-      },
-      {
-        type: 'article',
-        id: '2',
-        title: 'Анализ за неделю',
-        description: 'Показать топ-15 слов за последнюю неделю',
-        input_message_content: {
-          message_text: '📊 Анализ сообщений за последнюю неделю...'
-        }
-      },
-      {
-        type: 'article',
-        id: '3',
-        title: 'Анализ за месяц',
-        description: 'Показать топ-15 слов за последний месяц',
-        input_message_content: {
-          message_text: '📊 Анализ сообщений за последний месяц...'
-        }
-      }
-    ]);
+    
+    // Применяем фильтр
+    await applyAudioFilter(inputPath, outputPath, filterType);
+    
+    // Отправляем обработанное аудио
+    await ctx.replyWithVoice({ source: outputPath });
+    
+    // Удаляем временные файлы
+    fs.unlinkSync(inputPath);
+    fs.unlinkSync(outputPath);
+    
+    // Удаляем сообщение о обработке
+    await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
+  } catch (error) {
+    console.error('Ошибка при обработке голосового сообщения:', error);
+    await ctx.reply('❌ Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
   }
 });
 
 // Обработка команды /start
 bot.command('start', async (ctx) => {
   await ctx.reply(
-    'Привет! Я бот для анализа сообщений в чате. Используйте меня в любом чате:\n\n' +
+    'Привет! Я бот для обработки голосовых сообщений. Используйте меня в любом чате:\n\n' +
     '1. Напишите @имя_бота\n' +
-    '2. Выберите период анализа (день, неделя, месяц)\n' +
-    '3. Я проанализирую сообщения и покажу топ-15 самых частых слов'
+    '2. Выберите тип фильтра\n' +
+    '3. Отправьте голосовое сообщение\n' +
+    '4. Я обработаю его и отправлю обратно с выбранным фильтром'
   );
 });
 
@@ -214,12 +207,15 @@ bot.command('help', async (ctx) => {
   await ctx.reply(
     'Как использовать бота:\n\n' +
     '1. В любом чате напишите @имя_бота\n' +
-    '2. Выберите период анализа:\n' +
-    '   - За день (последние 24 часа)\n' +
-    '   - За неделю (последние 7 дней)\n' +
-    '   - За месяц (последние 30 дней)\n' +
-    '3. Я проанализирую сообщения и покажу топ-15 самых частых слов\n\n' +
-    'Важно: бот должен быть администратором чата для доступа к истории сообщений.'
+    '2. Выберите тип фильтра:\n' +
+    '   - Усилить бас\n' +
+    '   - Усилить высокие частоты\n' +
+    '   - Добавить эхо\n' +
+    '   - Добавить реверберацию\n' +
+    '   - Ускорить воспроизведение\n' +
+    '   - Усилить громкость\n' +
+    '3. Отправьте голосовое сообщение\n' +
+    '4. Я обработаю его и отправлю обратно с выбранным фильтром'
   );
 });
 
