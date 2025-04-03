@@ -49,6 +49,7 @@ async function downloadFile(fileId, fileName) {
 // Функция для применения аудиофильтра
 async function applyAudioFilter(inputFile, outputFile, filterType) {
   return new Promise((resolve, reject) => {
+    console.log(`Применяю фильтр ${filterType} к файлу ${inputFile}`);
     let command = ffmpeg(inputFile);
     
     // Выбираем фильтр в зависимости от типа
@@ -95,10 +96,18 @@ async function applyAudioFilter(inputFile, outputFile, filterType) {
       .output(outputFile)
       .audioCodec('libopus')
       .audioBitrate('128k')
+      .on('start', (commandLine) => {
+        console.log('Начало обработки аудио:', commandLine);
+      })
+      .on('progress', (progress) => {
+        console.log('Прогресс обработки:', progress.percent, '%');
+      })
       .on('end', () => {
+        console.log('Обработка аудио завершена');
         resolve();
       })
       .on('error', (err) => {
+        console.error('Ошибка при обработке аудио:', err);
         reject(err);
       })
       .run();
@@ -232,17 +241,20 @@ bot.command('volume', async (ctx) => {
 // Обработка голосовых сообщений
 bot.on('voice', async (ctx) => {
   try {
+    console.log('Получено голосовое сообщение');
     const voice = ctx.message.voice;
     const fileId = voice.file_id;
     const fileName = `${Date.now()}_${fileId}.ogg`;
     const inputPath = path.join(tempDir, fileName);
     const outputPath = path.join(tempDir, `processed_${fileName}`);
     
+    console.log('Скачиваю файл:', fileId);
     // Отправляем сообщение о начале обработки
     const processingMsg = await ctx.reply('🎵 Обрабатываю голосовое сообщение...');
     
     // Скачиваем голосовое сообщение
     await downloadFile(fileId, inputPath);
+    console.log('Файл скачан:', inputPath);
     
     // Определяем тип фильтра из сессии или текста сообщения
     let filterType = 'volume'; // По умолчанию усиливаем громкость
@@ -264,15 +276,19 @@ bot.on('voice', async (ctx) => {
       }
     }
     
+    console.log('Применяю фильтр:', filterType);
     // Применяем фильтр
     await applyAudioFilter(inputPath, outputPath, filterType);
+    console.log('Фильтр применен, отправляю файл:', outputPath);
     
     // Отправляем обработанное аудио
     await ctx.replyWithVoice({ source: outputPath });
+    console.log('Файл отправлен');
     
     // Удаляем временные файлы
     fs.unlinkSync(inputPath);
     fs.unlinkSync(outputPath);
+    console.log('Временные файлы удалены');
     
     // Удаляем сообщение о обработке
     await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
