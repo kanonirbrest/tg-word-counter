@@ -7,24 +7,29 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // Функция для подсчета частоты слов
 function getWordFrequency(text) {
-  // Приводим текст к нижнему регистру и разбиваем на слова
-  const words = text.toLowerCase()
-    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '') // Удаляем специальные символы
-    .split(/\s+/)
-    .filter(word => word.length > 2); // Игнорируем слова короче 3 букв
+  try {
+    // Приводим текст к нижнему регистру и разбиваем на слова
+    const words = text.toLowerCase()
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '') // Удаляем специальные символы
+      .split(/\s+/)
+      .filter(word => word.length > 2); // Игнорируем слова короче 3 букв
 
-  // Подсчитываем частоту каждого слова
-  const frequency = {};
-  words.forEach(word => {
-    frequency[word] = (frequency[word] || 0) + 1;
-  });
+    // Подсчитываем частоту каждого слова
+    const frequency = {};
+    words.forEach(word => {
+      frequency[word] = (frequency[word] || 0) + 1;
+    });
 
-  // Сортируем слова по частоте
-  const sortedWords = Object.entries(frequency)
-    .sort(([,a], [,b]) => b - a)
-    .slice(0, 15); // Берем топ-15
+    // Сортируем слова по частоте
+    const sortedWords = Object.entries(frequency)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 15); // Берем топ-15
 
-  return sortedWords;
+    return { success: true, data: sortedWords };
+  } catch (error) {
+    console.error('Ошибка при подсчете частоты слов:', error);
+    return { success: false, error: 'Не удалось проанализировать текст' };
+  }
 }
 
 // Обработка inline запросов
@@ -32,23 +37,38 @@ bot.on('inline_query', async (ctx) => {
   const query = ctx.inlineQuery.query;
   
   if (query) {
-    const frequency = getWordFrequency(query);
-    let response = '📊 Топ-15 самых частых слов:\n\n';
-    frequency.forEach(([word, count], index) => {
-      response += `${index + 1}. "${word}" - ${count} раз\n`;
-    });
+    const result = getWordFrequency(query);
+    
+    if (result.success) {
+      let response = '📊 Топ-15 самых частых слов:\n\n';
+      result.data.forEach(([word, count], index) => {
+        response += `${index + 1}. "${word}" - ${count} раз\n`;
+      });
 
-    await ctx.answerInlineQuery([
-      {
-        type: 'article',
-        id: '1',
-        title: 'Анализ текста',
-        description: 'Показать топ-15 самых частых слов',
-        input_message_content: {
-          message_text: response
+      await ctx.answerInlineQuery([
+        {
+          type: 'article',
+          id: '1',
+          title: 'Анализ текста',
+          description: 'Показать топ-15 самых частых слов',
+          input_message_content: {
+            message_text: response
+          }
         }
-      }
-    ]);
+      ]);
+    } else {
+      await ctx.answerInlineQuery([
+        {
+          type: 'article',
+          id: '1',
+          title: 'Ошибка анализа',
+          description: 'Не удалось проанализировать текст',
+          input_message_content: {
+            message_text: '❌ ' + result.error
+          }
+        }
+      ]);
+    }
   } else {
     await ctx.answerInlineQuery([{
       type: 'article',
