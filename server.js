@@ -449,7 +449,7 @@ bot.on('callback_query', async (ctx) => {
             console.log('Сессия после установки:', session);
             
             // Отвечаем на callback запрос
-            await ctx.answerCbQuery(`Выбран эффект: ${filterType}. Теперь отправьте голосовое сообщение.`);
+            await ctx.answerCbQuery(`Выбран эффект: ${filterType}`);
             
             // Проверяем, является ли это inline запросом
             if (!ctx.callbackQuery.inline_message_id) {
