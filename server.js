@@ -4,11 +4,18 @@ const LocalSession = require('telegraf-session-local');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const ffmpeg = require('fluent-ffmpeg');
+const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
 const app = express();
 const bot = new Telegraf(process.env.BOT_TOKEN);
+
+// Настройка Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // Настройка сессий
 bot.use(session());
@@ -46,72 +53,92 @@ async function downloadFile(fileId, fileName) {
   }
 }
 
-// Функция для применения аудиофильтра
-async function applyAudioFilter(inputFile, outputFile, filterType) {
-  return new Promise((resolve, reject) => {
-    console.log(`Применяю фильтр ${filterType} к файлу ${inputFile}`);
-    let command = ffmpeg(inputFile);
+// Функция для применения аудиофильтра через Cloudinary
+async function applyAudioFilter(inputFile, filterType) {
+  try {
+    console.log(`Загружаю файл в Cloudinary: ${inputFile}`);
+    const uploadResult = await cloudinary.uploader.upload(inputFile, {
+      resource_type: 'video',
+      format: 'ogg'
+    });
     
-    // Выбираем фильтр в зависимости от типа
+    console.log('Файл загружен, применяю фильтр:', filterType);
+    let transformation = [];
+    
     switch (filterType) {
       case 'bass':
-        command = command.audioFilters([
-          'bass=g=20:f=110:w=0.3',
-          'volume=1.5'
-        ]);
+        transformation = [
+          { audio_codec: 'aac', audio_bitrate: '128k' },
+          { audio_frequency: 44100 },
+          { audio_effects: 'bass_boost' }
+        ];
         break;
       case 'treble':
-        command = command.audioFilters([
-          'treble=g=20:f=3000:w=0.3',
-          'volume=1.5'
-        ]);
+        transformation = [
+          { audio_codec: 'aac', audio_bitrate: '128k' },
+          { audio_frequency: 44100 },
+          { audio_effects: 'treble_boost' }
+        ];
         break;
       case 'echo':
-        command = command.audioFilters([
-          'aecho=0.8:0.99:10:0.8',
-          'volume=1.5'
-        ]);
+        transformation = [
+          { audio_codec: 'aac', audio_bitrate: '128k' },
+          { audio_frequency: 44100 },
+          { audio_effects: 'echo' }
+        ];
         break;
       case 'reverb':
-        command = command.audioFilters([
-          'areverse',
-          'aecho=0.8:0.99:10:0.8',
-          'areverse',
-          'volume=1.5'
-        ]);
+        transformation = [
+          { audio_codec: 'aac', audio_bitrate: '128k' },
+          { audio_frequency: 44100 },
+          { audio_effects: 'reverb' }
+        ];
         break;
       case 'speed':
-        command = command.audioFilters([
-          'atempo=2.0',
-          'volume=1.5'
-        ]);
+        transformation = [
+          { audio_codec: 'aac', audio_bitrate: '128k' },
+          { audio_frequency: 44100 },
+          { audio_effects: 'speed_up' }
+        ];
         break;
       default:
-        command = command.audioFilters([
-          'volume=3.0'
-        ]);
+        transformation = [
+          { audio_codec: 'aac', audio_bitrate: '128k' },
+          { audio_frequency: 44100 },
+          { audio_effects: 'volume_up' }
+        ];
     }
     
-    command
-      .output(outputFile)
-      .audioCodec('libopus')
-      .audioBitrate('128k')
-      .on('start', (commandLine) => {
-        console.log('Начало обработки аудио:', commandLine);
-      })
-      .on('progress', (progress) => {
-        console.log('Прогресс обработки:', progress.percent, '%');
-      })
-      .on('end', () => {
-        console.log('Обработка аудио завершена');
-        resolve();
-      })
-      .on('error', (err) => {
-        console.error('Ошибка при обработке аудио:', err);
-        reject(err);
-      })
-      .run();
-  });
+    const result = await cloudinary.utils.generate_transformation_string(transformation);
+    const processedUrl = cloudinary.url(uploadResult.public_id, {
+      resource_type: 'video',
+      format: 'ogg',
+      transformation: result
+    });
+    
+    console.log('Фильтр применен, скачиваю результат');
+    const response = await axios({
+      method: 'GET',
+      url: processedUrl,
+      responseType: 'stream'
+    });
+    
+    const outputFile = path.join(tempDir, `processed_${path.basename(inputFile)}`);
+    const writer = fs.createWriteStream(outputFile);
+    response.data.pipe(writer);
+    
+    return new Promise((resolve, reject) => {
+      writer.on('finish', () => {
+        // Удаляем загруженный файл из Cloudinary
+        cloudinary.uploader.destroy(uploadResult.public_id, { resource_type: 'video' });
+        resolve(outputFile);
+      });
+      writer.on('error', reject);
+    });
+  } catch (error) {
+    console.error('Ошибка при обработке аудио:', error);
+    throw error;
+  }
 }
 
 // Обработка inline запросов
@@ -246,7 +273,6 @@ bot.on('voice', async (ctx) => {
     const fileId = voice.file_id;
     const fileName = `${Date.now()}_${fileId}.ogg`;
     const inputPath = path.join(tempDir, fileName);
-    const outputPath = path.join(tempDir, `processed_${fileName}`);
     
     console.log('Скачиваю файл:', fileId);
     // Отправляем сообщение о начале обработки
@@ -277,8 +303,8 @@ bot.on('voice', async (ctx) => {
     }
     
     console.log('Применяю фильтр:', filterType);
-    // Применяем фильтр
-    await applyAudioFilter(inputPath, outputPath, filterType);
+    // Применяем фильтр через Cloudinary
+    const outputPath = await applyAudioFilter(inputPath, filterType);
     console.log('Фильтр применен, отправляю файл:', outputPath);
     
     // Отправляем обработанное аудио
