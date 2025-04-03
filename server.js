@@ -549,20 +549,67 @@ bot.on('callback_query', async (ctx) => {
 
 // Запускаем бота
 console.log('Запускаю бота...');
-bot.launch().then(() => {
-    console.log('✅ Бот успешно запущен');
-    console.log('Время запуска:', new Date().toISOString());
-}).catch((error) => {
-    console.error('❌ Ошибка при запуске бота:', error);
-    process.exit(1);
-});
+const startBot = async () => {
+    try {
+        // Проверяем, что все необходимые переменные окружения установлены
+        if (!process.env.BOT_TOKEN) {
+            throw new Error('BOT_TOKEN не установлен');
+        }
+        if (!process.env.CLOUDINARY_CLOUD_NAME) {
+            throw new Error('CLOUDINARY_CLOUD_NAME не установлен');
+        }
+        if (!process.env.CLOUDINARY_API_KEY) {
+            throw new Error('CLOUDINARY_API_KEY не установлен');
+        }
+        if (!process.env.CLOUDINARY_API_SECRET) {
+            throw new Error('CLOUDINARY_API_SECRET не установлен');
+        }
 
-// Включаем graceful shutdown
-process.once('SIGINT', () => {
-    console.log('Получен сигнал SIGINT, останавливаю бота...');
-    bot.stop('SIGINT');
-});
-process.once('SIGTERM', () => {
-    console.log('Получен сигнал SIGTERM, останавливаю бота...');
-    bot.stop('SIGTERM');
-}); 
+        console.log('Запускаю бота...');
+        
+        // Обработка сигналов завершения
+        process.on('SIGTERM', async () => {
+            console.log('Получен сигнал SIGTERM, завершаю работу...');
+            await bot.stop('SIGTERM');
+            process.exit(0);
+        });
+
+        process.on('SIGINT', async () => {
+            console.log('Получен сигнал SIGINT, завершаю работу...');
+            await bot.stop('SIGINT');
+            process.exit(0);
+        });
+
+        // Запуск бота с повторными попытками
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries) {
+            try {
+                await bot.launch();
+                console.log('Бот успешно запущен');
+                break;
+            } catch (error) {
+                retryCount++;
+                if (error.description && error.description.includes('Conflict: terminated by other getUpdates request')) {
+                    console.log(`Обнаружен конфликт с другим экземпляром бота. Попытка ${retryCount} из ${maxRetries}`);
+                    if (retryCount < maxRetries) {
+                        // Увеличиваем время ожидания с каждой попыткой
+                        await new Promise(resolve => setTimeout(resolve, 5000 * retryCount));
+                    } else {
+                        console.log('Превышено максимальное количество попыток. Завершаю работу.');
+                        process.exit(1);
+                    }
+                } else {
+                    throw error;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка при запуске бота:', error);
+        process.exit(1);
+    }
+};
+
+// Запускаем бота
+startBot(); 
