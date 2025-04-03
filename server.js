@@ -241,11 +241,15 @@ bot.on('message', async (ctx) => {
 
 // Обработчик голосовых сообщений
 bot.on('voice', async (ctx) => {
+    console.log('=== VOICE MESSAGE RECEIVED ===');
+    console.log('Тип сообщения:', ctx.message ? Object.keys(ctx.message).filter(key => key !== 'from' && key !== 'chat' && key !== 'date') : 'неизвестно');
+    console.log('От пользователя:', ctx.from.id);
+    console.log('В чате:', ctx.chat.id);
+    console.log('Тип чата:', ctx.chat.type);
+    console.log('Данные сообщения:', JSON.stringify(ctx.message, null, 2));
+    console.log('========================');
+    
     try {
-        console.log('=== Обработка голосового сообщения ===');
-        console.log('От пользователя:', ctx.from.id);
-        console.log('Данные сообщения:', JSON.stringify(ctx.message, null, 2));
-        
         // Получаем информацию о сессии
         const session = await getSession(ctx.from.id);
         console.log('Текущая сессия:', session);
