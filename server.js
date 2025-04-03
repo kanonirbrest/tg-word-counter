@@ -67,14 +67,14 @@ async function applyAudioFilter(inputFile, outputFile, filterType) {
         break;
       case 'echo':
         command = command.audioFilters([
-          'aecho=0.8:0.88:6:0.4',
+          'aecho=0.8:0.99:10:0.8',
           'volume=1.5'
         ]);
         break;
       case 'reverb':
         command = command.audioFilters([
           'areverse',
-          'aecho=0.8:0.88:6:0.4',
+          'aecho=0.8:0.99:10:0.8',
           'areverse',
           'volume=1.5'
         ]);
