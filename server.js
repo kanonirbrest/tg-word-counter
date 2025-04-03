@@ -586,8 +586,12 @@ const startBot = async () => {
         
         while (retryCount < maxRetries) {
             try {
-                await bot.launch();
+                // Указываем, какие типы обновлений мы хотим получать
+                await bot.launch({
+                    allowed_updates: ['message', 'callback_query', 'inline_query']
+                });
                 console.log('Бот успешно запущен');
+                console.log('Получаем обновления: message, callback_query, inline_query');
                 break;
             } catch (error) {
                 retryCount++;
