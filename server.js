@@ -263,6 +263,12 @@ function saveSession(userId, session) {
     }
 }
 
+// Добавляем обработчик ошибок
+bot.catch((err, ctx) => {
+    console.error('⚠️ Ошибка в боте:', err);
+    console.error('Контекст ошибки:', ctx);
+});
+
 // Обработка всех входящих сообщений
 bot.on('message', async (ctx) => {
     console.log('\n');
@@ -361,62 +367,70 @@ bot.on('message', async (ctx) => {
 
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
-  console.log('=== INLINE QUERY START ===');
-  console.log('Получен inline запрос:', ctx.inlineQuery.query);
-  console.log('От пользователя:', ctx.from.id);
-  
-  try {
-    const results = inlineQueryOptions.map(option => ({
-      type: 'article',
-      id: option.id,
-      title: option.title,
-      description: option.description,
-      input_message_content: {
-        message_text: option.messageText
-      },
-      reply_markup: option.replyMarkup
-    }));
-
+    console.log('\n=== INLINE QUERY START ===');
+    console.log('Получен inline запрос:', ctx.inlineQuery.query);
+    console.log('От пользователя:', ctx.from.id);
+    
+    const results = [
+        {
+            type: 'article',
+            id: 'distortion',
+            title: 'Грубый голос',
+            description: 'Сделать голос более грубым',
+            input_message_content: {
+                message_text: 'Выбран эффект: Грубый голос'
+            },
+            reply_markup: {
+                inline_keyboard: [[{ text: 'Выбрать', callback_data: 'record_distortion' }]]
+            }
+        },
+        {
+            type: 'article',
+            id: 'volume',
+            title: 'Тихий голос',
+            description: 'Сделать голос тише',
+            input_message_content: {
+                message_text: 'Выбран эффект: Тихий голос'
+            },
+            reply_markup: {
+                inline_keyboard: [[{ text: 'Выбрать', callback_data: 'record_volume' }]]
+            }
+        },
+        {
+            type: 'article',
+            id: 'echo',
+            title: 'Эхо',
+            description: 'Добавить эхо к голосу',
+            input_message_content: {
+                message_text: 'Выбран эффект: Эхо'
+            },
+            reply_markup: {
+                inline_keyboard: [[{ text: 'Выбрать', callback_data: 'record_echo' }]]
+            }
+        }
+    ];
+    
     console.log('Подготовлено результатов:', results.length);
-    console.log('Отправляю результаты inline запроса');
     await ctx.answerInlineQuery(results);
-    console.log('=== INLINE QUERY END ===');
-  } catch (error) {
-    console.error('Ошибка при обработке inline запроса:', error);
-    console.error('Стек ошибки:', error.stack);
-  }
+    console.log('Отправляю результаты inline запроса');
+    console.log('=== INLINE QUERY END ===\n');
 });
 
 // Обработка команды /start
 bot.command('start', async (ctx) => {
-  const keyboard = {
-    inline_keyboard: [
-      [
-        { text: '🎵 Усилить бас', callback_data: 'record_bass' },
-        { text: '🎵 Усилить высокие частоты', callback_data: 'record_treble' }
-      ],
-      [
-        { text: '🎵 Добавить эхо', callback_data: 'record_echo' },
-        { text: '🎵 Добавить реверберацию', callback_data: 'record_reverb' }
-      ],
-      [
-        { text: '🎵 Ускорить воспроизведение', callback_data: 'record_speed' },
-        { text: '🎵 Усилить громкость', callback_data: 'record_volume' }
-      ],
-      [
-        { text: '🎵 Грубый голос', callback_data: 'record_distortion' }
-      ]
-    ]
-  };
-  
-  await ctx.reply(
-    'Привет! Я бот для обработки голосовых сообщений. Используйте меня:\n\n' +
-    '1. В любом чате напишите @имя_бота\n' +
-    '2. Выберите тип фильтра\n' +
-    '3. Отправьте голосовое сообщение\n\n' +
-    'Или выберите эффект ниже:',
-    { reply_markup: keyboard }
-  );
+    console.log('Получена команда /start');
+    const session = getSession(ctx.from.id);
+    session.filterType = null;
+    saveSession(ctx.from.id, session);
+    await ctx.reply('Выберите эффект для обработки голосового сообщения:', {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: 'Грубый голос', callback_data: 'record_distortion' }],
+                [{ text: 'Тихий голос', callback_data: 'record_volume' }],
+                [{ text: 'Эхо', callback_data: 'record_echo' }]
+            ]
+        }
+    });
 });
 
 // Обработка команды /help
@@ -460,7 +474,7 @@ bot.command('help', async (ctx) => {
 
 // Обработка callback запросов
 bot.on('callback_query', async (ctx) => {
-    console.log('=== Начало обработки callback запроса ===');
+    console.log('\n=== Начало обработки callback запроса ===');
     console.log('Callback данные:', JSON.stringify(ctx.callbackQuery, null, 2));
     console.log('От пользователя ID:', ctx.from.id);
     console.log('Имя пользователя:', ctx.from.username);
@@ -502,68 +516,22 @@ bot.on('callback_query', async (ctx) => {
     }
 });
 
-// Запуск бота
-const startBot = async () => {
-    try {
-        // Проверяем, что все необходимые переменные окружения установлены
-        if (!process.env.BOT_TOKEN) {
-            throw new Error('BOT_TOKEN не установлен');
-        }
-        if (!process.env.CLOUDINARY_CLOUD_NAME) {
-            throw new Error('CLOUDINARY_CLOUD_NAME не установлен');
-        }
-        if (!process.env.CLOUDINARY_API_KEY) {
-            throw new Error('CLOUDINARY_API_KEY не установлен');
-        }
-        if (!process.env.CLOUDINARY_API_SECRET) {
-            throw new Error('CLOUDINARY_API_SECRET не установлен');
-        }
-
-        console.log('Запускаю бота...');
-        
-        // Обработка сигналов завершения
-        process.on('SIGTERM', async () => {
-            console.log('Получен сигнал SIGTERM, завершаю работу...');
-            await bot.stop('SIGTERM');
-            process.exit(0);
-        });
-
-        process.on('SIGINT', async () => {
-            console.log('Получен сигнал SIGINT, завершаю работу...');
-            await bot.stop('SIGINT');
-            process.exit(0);
-        });
-
-        // Запуск бота с повторными попытками
-        let retryCount = 0;
-        const maxRetries = 3;
-        
-        while (retryCount < maxRetries) {
-            try {
-                await bot.launch();
-                console.log('Бот успешно запущен');
-                break;
-            } catch (error) {
-                retryCount++;
-                if (error.description && error.description.includes('Conflict: terminated by other getUpdates request')) {
-                    console.log(`Обнаружен конфликт с другим экземпляром бота. Попытка ${retryCount} из ${maxRetries}`);
-                    if (retryCount < maxRetries) {
-                        // Увеличиваем время ожидания с каждой попыткой
-                        await new Promise(resolve => setTimeout(resolve, 5000 * retryCount));
-                    } else {
-                        console.log('Превышено максимальное количество попыток. Завершаю работу.');
-                        process.exit(1);
-                    }
-                } else {
-                    throw error;
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Ошибка при запуске бота:', error);
-        process.exit(1);
-    }
-};
-
 // Запускаем бота
-startBot(); 
+console.log('Запускаю бота...');
+bot.launch().then(() => {
+    console.log('✅ Бот успешно запущен');
+    console.log('Время запуска:', new Date().toISOString());
+}).catch((error) => {
+    console.error('❌ Ошибка при запуске бота:', error);
+    process.exit(1);
+});
+
+// Включаем graceful shutdown
+process.once('SIGINT', () => {
+    console.log('Получен сигнал SIGINT, останавливаю бота...');
+    bot.stop('SIGINT');
+});
+process.once('SIGTERM', () => {
+    console.log('Получен сигнал SIGTERM, останавливаю бота...');
+    bot.stop('SIGTERM');
+}); 
