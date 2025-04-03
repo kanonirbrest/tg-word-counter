@@ -466,8 +466,12 @@ bot.on('callback_query', async (ctx) => {
             // Отвечаем на callback запрос
             await ctx.answerCbQuery(`Выбран эффект: ${filterType}`);
             
+            // Проверяем, является ли это inline запросом
+            const isInlineQuery = ctx.callbackQuery.inline_message_id !== undefined;
+            console.log('Это inline запрос:', isInlineQuery);
+            
             // Отправляем сообщение только если это НЕ inline запрос
-            if (!ctx.callbackQuery.inline_message_id) {
+            if (!isInlineQuery) {
                 console.log('Это обычный запрос, отправляю сообщение в текущий чат');
                 const message = await ctx.reply('🎤 Пожалуйста, отправьте голосовое сообщение для обработки');
                 console.log('Сообщение успешно отправлено:', message);
