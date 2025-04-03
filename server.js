@@ -1,5 +1,6 @@
 const express = require('express');
-const { Telegraf } = require('telegraf');
+const { Telegraf, session } = require('telegraf');
+const LocalSession = require('telegraf-session-local');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -8,6 +9,10 @@ require('dotenv').config();
 
 const app = express();
 const bot = new Telegraf(process.env.BOT_TOKEN);
+
+// Настройка сессий
+bot.use(session());
+bot.use(new LocalSession({ database: 'sessions.json' }).middleware());
 
 // Создаем временную директорию для аудиофайлов, если её нет
 const tempDir = path.join(__dirname, 'temp');
@@ -193,6 +198,37 @@ bot.on('inline_query', async (ctx) => {
   ]);
 });
 
+// Обработка команд
+bot.command('bass', async (ctx) => {
+  await ctx.reply('🎵 Отправьте голосовое сообщение для усиления баса');
+  ctx.session = { filterType: 'bass' };
+});
+
+bot.command('treble', async (ctx) => {
+  await ctx.reply('🎵 Отправьте голосовое сообщение для усиления высоких частот');
+  ctx.session = { filterType: 'treble' };
+});
+
+bot.command('echo', async (ctx) => {
+  await ctx.reply('🎵 Отправьте голосовое сообщение для добавления эхо');
+  ctx.session = { filterType: 'echo' };
+});
+
+bot.command('reverb', async (ctx) => {
+  await ctx.reply('🎵 Отправьте голосовое сообщение для добавления реверберации');
+  ctx.session = { filterType: 'reverb' };
+});
+
+bot.command('speed', async (ctx) => {
+  await ctx.reply('🎵 Отправьте голосовое сообщение для ускорения воспроизведения');
+  ctx.session = { filterType: 'speed' };
+});
+
+bot.command('volume', async (ctx) => {
+  await ctx.reply('🎵 Отправьте голосовое сообщение для усиления громкости');
+  ctx.session = { filterType: 'volume' };
+});
+
 // Обработка голосовых сообщений
 bot.on('voice', async (ctx) => {
   try {
@@ -208,20 +244,24 @@ bot.on('voice', async (ctx) => {
     // Скачиваем голосовое сообщение
     await downloadFile(fileId, inputPath);
     
-    // Определяем тип фильтра из текста сообщения
+    // Определяем тип фильтра из сессии или текста сообщения
     let filterType = 'volume'; // По умолчанию усиливаем громкость
-    const text = ctx.message.text || '';
     
-    if (text.includes('bass')) {
-      filterType = 'bass';
-    } else if (text.includes('treble')) {
-      filterType = 'treble';
-    } else if (text.includes('echo')) {
-      filterType = 'echo';
-    } else if (text.includes('reverb')) {
-      filterType = 'reverb';
-    } else if (text.includes('speed')) {
-      filterType = 'speed';
+    if (ctx.session && ctx.session.filterType) {
+      filterType = ctx.session.filterType;
+    } else {
+      const text = ctx.message.text || '';
+      if (text.includes('bass')) {
+        filterType = 'bass';
+      } else if (text.includes('treble')) {
+        filterType = 'treble';
+      } else if (text.includes('echo')) {
+        filterType = 'echo';
+      } else if (text.includes('reverb')) {
+        filterType = 'reverb';
+      } else if (text.includes('speed')) {
+        filterType = 'speed';
+      }
     }
     
     // Применяем фильтр
@@ -236,6 +276,9 @@ bot.on('voice', async (ctx) => {
     
     // Удаляем сообщение о обработке
     await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
+    
+    // Очищаем сессию
+    ctx.session = null;
   } catch (error) {
     console.error('Ошибка при обработке голосового сообщения:', error);
     await ctx.reply('❌ Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
@@ -245,11 +288,17 @@ bot.on('voice', async (ctx) => {
 // Обработка команды /start
 bot.command('start', async (ctx) => {
   await ctx.reply(
-    'Привет! Я бот для обработки голосовых сообщений. Используйте меня в любом чате:\n\n' +
-    '1. Напишите @имя_бота\n' +
+    'Привет! Я бот для обработки голосовых сообщений. Используйте меня:\n\n' +
+    '1. В любом чате напишите @имя_бота\n' +
     '2. Выберите тип фильтра\n' +
-    '3. Отправьте голосовое сообщение\n' +
-    '4. Я обработаю его и отправлю обратно с выбранным фильтром'
+    '3. Отправьте голосовое сообщение\n\n' +
+    'Или используйте команды:\n' +
+    '/bass - усилить бас\n' +
+    '/treble - усилить высокие частоты\n' +
+    '/echo - добавить эхо\n' +
+    '/reverb - добавить реверберацию\n' +
+    '/speed - ускорить воспроизведение\n' +
+    '/volume - усилить громкость'
   );
 });
 
@@ -265,8 +314,14 @@ bot.command('help', async (ctx) => {
     '   - Добавить реверберацию\n' +
     '   - Ускорить воспроизведение\n' +
     '   - Усилить громкость\n' +
-    '3. Отправьте голосовое сообщение\n' +
-    '4. Я обработаю его и отправлю обратно с выбранным фильтром'
+    '3. Отправьте голосовое сообщение\n\n' +
+    'Или используйте команды:\n' +
+    '/bass - усилить бас\n' +
+    '/treble - усилить высокие частоты\n' +
+    '/echo - добавить эхо\n' +
+    '/reverb - добавить реверберацию\n' +
+    '/speed - ускорить воспроизведение\n' +
+    '/volume - усилить громкость'
   );
 });
 
