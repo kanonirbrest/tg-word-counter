@@ -55,22 +55,39 @@ async function getChatMessages(ctx, period) {
     }
 
     // Получаем сообщения из чата
-    const messages = await ctx.telegram.getChatHistory(chatId, {
-      limit: 100, // Ограничиваем количество сообщений
-      offset: 0
+    const messages = await ctx.telegram.getChat(chatId);
+    if (!messages) {
+      throw new Error('Не удалось получить информацию о чате');
+    }
+
+    // Получаем последние сообщения
+    const updates = await ctx.telegram.getUpdates({
+      offset: -1,
+      limit: 100,
+      timeout: 0
     });
 
-    // Фильтруем сообщения по времени
-    const filteredMessages = messages.filter(msg => {
-      const msgDate = msg.date * 1000; // Конвертируем в миллисекунды
-      return msgDate >= startTime && msgDate <= now;
-    });
+    // Фильтруем сообщения по чату и времени
+    const chatMessages = updates
+      .filter(update => update.message && update.message.chat.id === chatId)
+      .map(update => update.message)
+      .filter(msg => {
+        const msgDate = msg.date * 1000;
+        return msgDate >= startTime && msgDate <= now;
+      });
 
     // Собираем текст из сообщений
-    const text = filteredMessages
+    const text = chatMessages
       .map(msg => msg.text || '')
       .filter(text => text.length > 0)
       .join(' ');
+
+    if (text.length === 0) {
+      return { 
+        success: false, 
+        error: 'За выбранный период сообщений не найдено'
+      };
+    }
 
     return { success: true, data: text };
   } catch (error) {
