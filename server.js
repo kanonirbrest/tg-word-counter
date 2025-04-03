@@ -255,6 +255,9 @@ bot.on('message', async (ctx) => {
     // Если это голосовое сообщение, обрабатываем его
     if (ctx.message.voice) {
         console.log('=== VOICE MESSAGE RECEIVED ===');
+        console.log('Длина сообщения:', ctx.message.voice.duration, 'секунд');
+        console.log('Полные данные голосового сообщения:', JSON.stringify(ctx.message.voice, null, 2));
+        
         try {
             // Получаем информацию о сессии
             const session = getSession(ctx.from.id);
