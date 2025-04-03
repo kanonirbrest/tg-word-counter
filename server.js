@@ -150,7 +150,7 @@ async function downloadFile(fileId, fileName) {
 // Функция для применения аудиофильтра через Cloudinary
 async function applyAudioFilter(inputFile, filterType) {
     try {
-        console.log('=== Начало обработки аудио ===');
+        console.log('\n=== Начало обработки аудио ===');
         console.log('Входной файл:', inputFile);
         console.log('Тип фильтра:', filterType);
         
@@ -167,18 +167,38 @@ async function applyAudioFilter(inputFile, filterType) {
         console.log('Загружаю файл в Cloudinary...');
         const uploadResult = await cloudinary.uploader.upload(inputFile, {
             resource_type: 'video',
-            format: 'ogg'
+            format: 'ogg',
+            audio_codec: 'libvorbis'
         });
         console.log('Файл загружен в Cloudinary:', uploadResult.public_id);
         
-        // Применяем фильтр
+        // Применяем фильтр в зависимости от типа
         console.log('Применяю фильтр в Cloudinary...');
+        let audioEffects = [];
+        
+        switch(filterType) {
+            case 'distortion':
+                audioEffects = ['distortion:20'];
+                break;
+            case 'volume':
+                audioEffects = ['volume:0.5'];
+                break;
+            case 'echo':
+                audioEffects = ['echo:0.5:0.5:0.5'];
+                break;
+            default:
+                audioEffects = ['volume:1.0'];
+        }
+        
+        console.log('Применяемые эффекты:', audioEffects);
+        
         const result = await cloudinary.url(uploadResult.public_id, {
             resource_type: 'video',
             format: 'ogg',
             audio_codec: 'libvorbis',
-            audio_effects: filterType
+            audio_effects: audioEffects
         });
+        
         console.log('Фильтр применен, URL результата:', result);
         
         // Проверяем, что URL корректный
