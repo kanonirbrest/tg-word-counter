@@ -163,8 +163,13 @@ async function applyAudioFilter(inputFile, filterType) {
 // Обработка голосовых сообщений
 bot.on('voice', async (ctx) => {
   try {
-    console.log('Получено голосовое сообщение');
+    console.log('=== Начало обработки голосового сообщения ===');
+    console.log('Сообщение:', ctx.message);
+    console.log('Сессия:', ctx.session);
+    
     const voice = ctx.message.voice;
+    console.log('Голосовое сообщение:', voice);
+    
     const fileId = voice.file_id;
     const fileName = `${Date.now()}_${fileId}.ogg`;
     const inputPath = path.join(tempDir, fileName);
@@ -182,13 +187,12 @@ bot.on('voice', async (ctx) => {
     console.log('Размер входного файла:', stats.size, 'байт');
     
     // Определяем тип фильтра из сессии
-    let filterType = ctx.session?.filterType || 'volume';
-    console.log('Тип фильтра из сессии:', filterType);
-    
-    // Проверяем наличие сессии
-    if (!ctx.session) {
+    let filterType = 'volume'; // По умолчанию
+    if (ctx.session && ctx.session.filterType) {
+      filterType = ctx.session.filterType;
+      console.log('Тип фильтра из сессии:', filterType);
+    } else {
       console.log('Сессия не найдена, использую volume по умолчанию');
-      ctx.session = { filterType: 'volume' };
     }
     
     console.log('Применяю фильтр:', filterType);
@@ -215,8 +219,10 @@ bot.on('voice', async (ctx) => {
     
     // Очищаем сессию
     ctx.session = null;
+    console.log('=== Обработка голосового сообщения завершена ===');
   } catch (error) {
     console.error('Ошибка при обработке голосового сообщения:', error);
+    console.error('Стек ошибки:', error.stack);
     await ctx.reply('❌ Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
   }
 });
@@ -405,32 +411,44 @@ bot.command('help', async (ctx) => {
 
 // Обработка callback запросов от inline кнопок
 bot.on('callback_query', async (ctx) => {
-  const callbackData = ctx.callbackQuery.data;
-  console.log('Получен callback запрос:', callbackData);
-  
-  if (callbackData.startsWith('record_')) {
-    const filterType = callbackData.replace('record_', '');
-    console.log('Устанавливаю тип фильтра в сессию:', filterType);
-    ctx.session = { filterType };
-    console.log('Сессия после установки:', ctx.session);
+  try {
+    console.log('=== Начало обработки callback запроса ===');
+    console.log('Callback данные:', ctx.callbackQuery);
     
-    // Отвечаем на callback запрос
-    await ctx.answerCbQuery('Теперь отправьте голосовое сообщение');
+    const callbackData = ctx.callbackQuery.data;
+    console.log('Получен callback запрос:', callbackData);
     
-    // Отправляем сообщение с инструкцией
-    let effectName = '';
-    switch (filterType) {
-      case 'bass': effectName = 'усиления баса'; break;
-      case 'treble': effectName = 'усиления высоких частот'; break;
-      case 'echo': effectName = 'добавления эхо'; break;
-      case 'reverb': effectName = 'добавления реверберации'; break;
-      case 'speed': effectName = 'ускорения воспроизведения'; break;
-      case 'volume': effectName = 'усиления громкости'; break;
-      case 'distortion': effectName = 'добавления эффекта искажения'; break;
-      default: effectName = filterType;
+    if (callbackData.startsWith('record_')) {
+      const filterType = callbackData.replace('record_', '');
+      console.log('Устанавливаю тип фильтра в сессию:', filterType);
+      
+      // Сохраняем тип фильтра в сессии
+      ctx.session = { filterType };
+      console.log('Сессия после установки:', ctx.session);
+      
+      // Отвечаем на callback запрос
+      await ctx.answerCbQuery('Теперь отправьте голосовое сообщение');
+      
+      // Отправляем сообщение с инструкцией
+      let effectName = '';
+      switch (filterType) {
+        case 'bass': effectName = 'усиления баса'; break;
+        case 'treble': effectName = 'усиления высоких частот'; break;
+        case 'echo': effectName = 'добавления эхо'; break;
+        case 'reverb': effectName = 'добавления реверберации'; break;
+        case 'speed': effectName = 'ускорения воспроизведения'; break;
+        case 'volume': effectName = 'усиления громкости'; break;
+        case 'distortion': effectName = 'добавления эффекта искажения'; break;
+        default: effectName = filterType;
+      }
+      
+      await ctx.reply(`🎵 Отправьте голосовое сообщение для ${effectName}`);
+      console.log('=== Обработка callback запроса завершена ===');
     }
-    
-    await ctx.reply(`🎵 Отправьте голосовое сообщение для ${effectName}`);
+  } catch (error) {
+    console.error('Ошибка при обработке callback запроса:', error);
+    console.error('Стек ошибки:', error.stack);
+    await ctx.answerCbQuery('Произошла ошибка. Пожалуйста, попробуйте еще раз.');
   }
 });
 
