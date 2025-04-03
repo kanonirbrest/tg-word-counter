@@ -62,7 +62,8 @@ async function applyAudioFilter(inputFile, filterType) {
       format: 'ogg'
     });
     
-    console.log('Файл загружен, применяю фильтр:', filterType);
+    console.log('Файл загружен в Cloudinary, public_id:', uploadResult.public_id);
+    console.log('Применяю фильтр:', filterType);
     let transformation = [];
     
     switch (filterType) {
@@ -116,14 +117,18 @@ async function applyAudioFilter(inputFile, filterType) {
         ];
     }
     
+    console.log('Трансформация:', JSON.stringify(transformation));
     const result = await cloudinary.utils.generate_transformation_string(transformation);
+    console.log('Строка трансформации:', result);
+    
     const processedUrl = cloudinary.url(uploadResult.public_id, {
       resource_type: 'video',
       format: 'ogg',
       transformation: result
     });
+    console.log('URL обработанного файла:', processedUrl);
     
-    console.log('Фильтр применен, скачиваю результат');
+    console.log('Скачиваю результат');
     const response = await axios({
       method: 'GET',
       url: processedUrl,
@@ -131,16 +136,23 @@ async function applyAudioFilter(inputFile, filterType) {
     });
     
     const outputFile = path.join(tempDir, `processed_${path.basename(inputFile)}`);
+    console.log('Сохраняю в файл:', outputFile);
     const writer = fs.createWriteStream(outputFile);
     response.data.pipe(writer);
     
     return new Promise((resolve, reject) => {
       writer.on('finish', () => {
+        console.log('Файл успешно сохранен');
         // Удаляем загруженный файл из Cloudinary
-        cloudinary.uploader.destroy(uploadResult.public_id, { resource_type: 'video' });
+        cloudinary.uploader.destroy(uploadResult.public_id, { resource_type: 'video' })
+          .then(() => console.log('Файл удален из Cloudinary'))
+          .catch(err => console.error('Ошибка при удалении файла из Cloudinary:', err));
         resolve(outputFile);
       });
-      writer.on('error', reject);
+      writer.on('error', (err) => {
+        console.error('Ошибка при сохранении файла:', err);
+        reject(err);
+      });
     });
   } catch (error) {
     console.error('Ошибка при обработке аудио:', error);
@@ -308,6 +320,10 @@ bot.on('voice', async (ctx) => {
     await downloadFile(fileId, inputPath);
     console.log('Файл скачан:', inputPath);
     
+    // Проверяем, что файл существует и имеет размер
+    const stats = fs.statSync(inputPath);
+    console.log('Размер входного файла:', stats.size, 'байт');
+    
     // Определяем тип фильтра из сессии или текста сообщения
     let filterType = 'volume'; // По умолчанию усиливаем громкость
     
@@ -335,9 +351,14 @@ bot.on('voice', async (ctx) => {
     const outputPath = await applyAudioFilter(inputPath, filterType);
     console.log('Фильтр применен, отправляю файл:', outputPath);
     
+    // Проверяем, что выходной файл существует и имеет размер
+    const outputStats = fs.statSync(outputPath);
+    console.log('Размер выходного файла:', outputStats.size, 'байт');
+    
     // Отправляем обработанное аудио
+    console.log('Отправляю голосовое сообщение...');
     await ctx.replyWithVoice({ source: outputPath });
-    console.log('Файл отправлен');
+    console.log('Голосовое сообщение успешно отправлено');
     
     // Удаляем временные файлы
     fs.unlinkSync(inputPath);
