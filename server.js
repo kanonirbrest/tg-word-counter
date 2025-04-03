@@ -79,12 +79,16 @@ bot.on('chosen_inline_result', async (ctx) => {
 
   if (period) {
     try {
-      // Получаем сообщения из чата
-      const messages = await ctx.telegram.getChat(ctx.chat.id);
-      const chatMessages = await ctx.telegram.getChatMessages(ctx.chat.id, {
-        limit: 100
+      // Получаем информацию о чате
+      const chat = await ctx.telegram.getChat(ctx.chat.id);
+      
+      // Получаем последние сообщения через метод getUpdates
+      const updates = await ctx.telegram.getUpdates({
+        offset: -1,
+        limit: 100,
+        timeout: 0
       });
-
+      
       // Фильтруем сообщения по периоду
       const now = new Date();
       let startDate;
@@ -100,14 +104,17 @@ bot.on('chosen_inline_result', async (ctx) => {
           break;
       }
 
-      const filteredMessages = chatMessages.filter(msg => 
-        new Date(msg.date * 1000) >= startDate
-      );
+      // Фильтруем сообщения из нужного чата и за нужный период
+      const chatMessages = updates
+        .filter(update => 
+          update.message && 
+          update.message.chat.id === chat.id &&
+          new Date(update.message.date * 1000) >= startDate
+        )
+        .map(update => update.message.text || '');
 
       // Собираем весь текст
-      const allText = filteredMessages
-        .map(msg => msg.text || '')
-        .join(' ');
+      const allText = chatMessages.join(' ');
 
       const frequency = getWordFrequency(allText);
       
