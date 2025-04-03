@@ -27,49 +27,6 @@ function getWordFrequency(text) {
   return sortedWords;
 }
 
-// Функция для получения сообщений за период
-async function getMessagesForPeriod(ctx, period) {
-  const now = new Date();
-  let startDate;
-  
-  switch(period) {
-    case 'day':
-      startDate = new Date(now - 24 * 60 * 60 * 1000);
-      break;
-    case 'week':
-      startDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case 'month':
-      startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
-      break;
-    default:
-      startDate = new Date(now - 24 * 60 * 60 * 1000);
-  }
-
-  try {
-    // Получаем историю сообщений
-    const messages = await ctx.telegram.getChatHistory(ctx.chat.id, {
-      limit: 100, // Максимальное количество сообщений
-      offset: 0
-    });
-
-    // Фильтруем сообщения по дате
-    const filteredMessages = messages.filter(msg => 
-      new Date(msg.date * 1000) >= startDate
-    );
-
-    // Собираем весь текст
-    const allText = filteredMessages
-      .map(msg => msg.text || '')
-      .join(' ');
-
-    return allText;
-  } catch (error) {
-    console.error('Ошибка при получении истории сообщений:', error);
-    return '';
-  }
-}
-
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
   await ctx.answerInlineQuery([
@@ -121,20 +78,59 @@ bot.on('chosen_inline_result', async (ctx) => {
   }
 
   if (period) {
-    const messages = await getMessagesForPeriod(ctx, period);
-    const frequency = getWordFrequency(messages);
-    
-    let response = `📊 Топ-15 самых частых слов за ${period === 'day' ? 'последние 24 часа' : period === 'week' ? 'последнюю неделю' : 'последний месяц'}:\n\n`;
-    frequency.forEach(([word, count], index) => {
-      response += `${index + 1}. "${word}" - ${count} раз\n`;
-    });
+    try {
+      // Получаем сообщения из чата
+      const messages = await ctx.telegram.getChat(ctx.chat.id);
+      const chatMessages = await ctx.telegram.getChatMessages(ctx.chat.id, {
+        limit: 100
+      });
 
-    await ctx.telegram.editMessageText(
-      ctx.chat.id,
-      ctx.chosenInlineResult.inline_message_id,
-      null,
-      response
-    );
+      // Фильтруем сообщения по периоду
+      const now = new Date();
+      let startDate;
+      switch(period) {
+        case 'day':
+          startDate = new Date(now - 24 * 60 * 60 * 1000);
+          break;
+        case 'week':
+          startDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+          break;
+      }
+
+      const filteredMessages = chatMessages.filter(msg => 
+        new Date(msg.date * 1000) >= startDate
+      );
+
+      // Собираем весь текст
+      const allText = filteredMessages
+        .map(msg => msg.text || '')
+        .join(' ');
+
+      const frequency = getWordFrequency(allText);
+      
+      let response = `📊 Топ-15 самых частых слов за ${period === 'day' ? 'последние 24 часа' : period === 'week' ? 'последнюю неделю' : 'последний месяц'}:\n\n`;
+      frequency.forEach(([word, count], index) => {
+        response += `${index + 1}. "${word}" - ${count} раз\n`;
+      });
+
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        ctx.chosenInlineResult.inline_message_id,
+        null,
+        response
+      );
+    } catch (error) {
+      console.error('Ошибка при получении сообщений:', error);
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        ctx.chosenInlineResult.inline_message_id,
+        null,
+        '❌ Ошибка при получении сообщений. Убедитесь, что бот является администратором чата.'
+      );
+    }
   }
 });
 
