@@ -31,7 +31,6 @@ function getWordFrequency(text) {
 bot.on('inline_query', async (ctx) => {
   const query = ctx.inlineQuery.query;
   
-  // Если есть текст для анализа
   if (query) {
     const frequency = getWordFrequency(query);
     let response = '📊 Топ-15 самых частых слов:\n\n';
@@ -39,8 +38,7 @@ bot.on('inline_query', async (ctx) => {
       response += `${index + 1}. "${word}" - ${count} раз\n`;
     });
 
-    // Создаем результат для inline ответа
-    const results = [{
+    await ctx.answerInlineQuery([{
       type: 'article',
       id: '1',
       title: 'Анализ текста',
@@ -48,12 +46,9 @@ bot.on('inline_query', async (ctx) => {
       input_message_content: {
         message_text: response
       }
-    }];
-
-    await ctx.answerInlineQuery(results);
+    }]);
   } else {
-    // Если текст не предоставлен, показываем инструкцию
-    const results = [{
+    await ctx.answerInlineQuery([{
       type: 'article',
       id: '1',
       title: 'Введите текст для анализа',
@@ -61,9 +56,7 @@ bot.on('inline_query', async (ctx) => {
       input_message_content: {
         message_text: 'Пожалуйста, введите текст для анализа после @имя_бота'
       }
-    }];
-
-    await ctx.answerInlineQuery(results);
+    }]);
   }
 });
 
