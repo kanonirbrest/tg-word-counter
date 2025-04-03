@@ -397,12 +397,6 @@ bot.on('message', async (ctx) => {
     console.log('****************************************\n');
 });
 
-// Добавляем отдельный обработчик для голосовых сообщений
-bot.on('voice', async (ctx) => {
-    console.log('\n!!! ПОЛУЧЕНО ГОЛОСОВОЕ СООБЩЕНИЕ ЧЕРЕЗ VOICE HANDLER !!!');
-    console.log('Данные голосового сообщения:', JSON.stringify(ctx.message.voice, null, 2));
-});
-
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
     console.log('\n=== INLINE QUERY START ===');
