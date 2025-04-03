@@ -181,27 +181,9 @@ bot.on('voice', async (ctx) => {
     const stats = fs.statSync(inputPath);
     console.log('Размер входного файла:', stats.size, 'байт');
     
-    // Определяем тип фильтра из сессии или текста сообщения
-    let filterType = 'volume'; // По умолчанию усиливаем громкость
-    
-    if (ctx.session && ctx.session.filterType) {
-      filterType = ctx.session.filterType;
-    } else {
-      const text = ctx.message.text || '';
-      if (text.includes('bass')) {
-        filterType = 'bass';
-      } else if (text.includes('treble')) {
-        filterType = 'treble';
-      } else if (text.includes('echo')) {
-        filterType = 'echo';
-      } else if (text.includes('reverb')) {
-        filterType = 'reverb';
-      } else if (text.includes('speed')) {
-        filterType = 'speed';
-      } else if (text.includes('distortion')) {
-        filterType = 'distortion';
-      }
-    }
+    // Определяем тип фильтра из сессии
+    let filterType = ctx.session?.filterType || 'volume';
+    console.log('Тип фильтра из сессии:', filterType);
     
     console.log('Применяю фильтр:', filterType);
     // Применяем фильтр через Cloudinary
@@ -236,6 +218,11 @@ bot.on('voice', async (ctx) => {
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
   const query = ctx.inlineQuery.query;
+  
+  // Если запрос содержит тип фильтра, сохраняем его в сессии
+  if (query && ['bass', 'treble', 'echo', 'reverb', 'speed', 'volume', 'distortion'].includes(query)) {
+    ctx.session = { filterType: query };
+  }
   
   // Показываем доступные фильтры
   await ctx.answerInlineQuery([
