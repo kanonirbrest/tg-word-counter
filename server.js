@@ -1,6 +1,5 @@
 const express = require('express');
 const { Telegraf, session } = require('telegraf');
-const LocalSession = require('telegraf-session-local');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -19,7 +18,6 @@ cloudinary.config({
 
 // Настройка сессий
 bot.use(session());
-bot.use(new LocalSession({ database: 'sessions.json' }).middleware());
 
 // Создаем временную директорию для аудиофайлов, если её нет
 const tempDir = path.join(__dirname, 'temp');
