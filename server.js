@@ -160,6 +160,79 @@ async function applyAudioFilter(inputFile, filterType) {
   }
 }
 
+// Обработка голосовых сообщений
+bot.on('voice', async (ctx) => {
+  try {
+    console.log('Получено голосовое сообщение');
+    const voice = ctx.message.voice;
+    const fileId = voice.file_id;
+    const fileName = `${Date.now()}_${fileId}.ogg`;
+    const inputPath = path.join(tempDir, fileName);
+    
+    console.log('Скачиваю файл:', fileId);
+    // Отправляем сообщение о начале обработки
+    const processingMsg = await ctx.reply('🎵 Обрабатываю голосовое сообщение...');
+    
+    // Скачиваем голосовое сообщение
+    await downloadFile(fileId, inputPath);
+    console.log('Файл скачан:', inputPath);
+    
+    // Проверяем, что файл существует и имеет размер
+    const stats = fs.statSync(inputPath);
+    console.log('Размер входного файла:', stats.size, 'байт');
+    
+    // Определяем тип фильтра из сессии или текста сообщения
+    let filterType = 'volume'; // По умолчанию усиливаем громкость
+    
+    if (ctx.session && ctx.session.filterType) {
+      filterType = ctx.session.filterType;
+    } else {
+      const text = ctx.message.text || '';
+      if (text.includes('bass')) {
+        filterType = 'bass';
+      } else if (text.includes('treble')) {
+        filterType = 'treble';
+      } else if (text.includes('echo')) {
+        filterType = 'echo';
+      } else if (text.includes('reverb')) {
+        filterType = 'reverb';
+      } else if (text.includes('speed')) {
+        filterType = 'speed';
+      } else if (text.includes('distortion')) {
+        filterType = 'distortion';
+      }
+    }
+    
+    console.log('Применяю фильтр:', filterType);
+    // Применяем фильтр через Cloudinary
+    const outputPath = await applyAudioFilter(inputPath, filterType);
+    console.log('Фильтр применен, отправляю файл:', outputPath);
+    
+    // Проверяем, что выходной файл существует и имеет размер
+    const outputStats = fs.statSync(outputPath);
+    console.log('Размер выходного файла:', outputStats.size, 'байт');
+    
+    // Отправляем обработанное аудио
+    console.log('Отправляю голосовое сообщение...');
+    await ctx.replyWithVoice({ source: outputPath });
+    console.log('Голосовое сообщение успешно отправлено');
+    
+    // Удаляем временные файлы
+    fs.unlinkSync(inputPath);
+    fs.unlinkSync(outputPath);
+    console.log('Временные файлы удалены');
+    
+    // Удаляем сообщение о обработке
+    await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
+    
+    // Очищаем сессию
+    ctx.session = null;
+  } catch (error) {
+    console.error('Ошибка при обработке голосового сообщения:', error);
+    await ctx.reply('❌ Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
+  }
+});
+
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
   const query = ctx.inlineQuery.query;
@@ -301,79 +374,6 @@ bot.command('volume', async (ctx) => {
 bot.command('distortion', async (ctx) => {
   await ctx.reply('🎵 Отправьте голосовое сообщение для добавления эффекта искажения');
   ctx.session = { filterType: 'distortion' };
-});
-
-// Обработка голосовых сообщений
-bot.on('voice', async (ctx) => {
-  try {
-    console.log('Получено голосовое сообщение');
-    const voice = ctx.message.voice;
-    const fileId = voice.file_id;
-    const fileName = `${Date.now()}_${fileId}.ogg`;
-    const inputPath = path.join(tempDir, fileName);
-    
-    console.log('Скачиваю файл:', fileId);
-    // Отправляем сообщение о начале обработки
-    const processingMsg = await ctx.reply('🎵 Обрабатываю голосовое сообщение...');
-    
-    // Скачиваем голосовое сообщение
-    await downloadFile(fileId, inputPath);
-    console.log('Файл скачан:', inputPath);
-    
-    // Проверяем, что файл существует и имеет размер
-    const stats = fs.statSync(inputPath);
-    console.log('Размер входного файла:', stats.size, 'байт');
-    
-    // Определяем тип фильтра из сессии или текста сообщения
-    let filterType = 'volume'; // По умолчанию усиливаем громкость
-    
-    if (ctx.session && ctx.session.filterType) {
-      filterType = ctx.session.filterType;
-    } else {
-      const text = ctx.message.text || '';
-      if (text.includes('bass')) {
-        filterType = 'bass';
-      } else if (text.includes('treble')) {
-        filterType = 'treble';
-      } else if (text.includes('echo')) {
-        filterType = 'echo';
-      } else if (text.includes('reverb')) {
-        filterType = 'reverb';
-      } else if (text.includes('speed')) {
-        filterType = 'speed';
-      } else if (text.includes('distortion')) {
-        filterType = 'distortion';
-      }
-    }
-    
-    console.log('Применяю фильтр:', filterType);
-    // Применяем фильтр через Cloudinary
-    const outputPath = await applyAudioFilter(inputPath, filterType);
-    console.log('Фильтр применен, отправляю файл:', outputPath);
-    
-    // Проверяем, что выходной файл существует и имеет размер
-    const outputStats = fs.statSync(outputPath);
-    console.log('Размер выходного файла:', outputStats.size, 'байт');
-    
-    // Отправляем обработанное аудио
-    console.log('Отправляю голосовое сообщение...');
-    await ctx.replyWithVoice({ source: outputPath });
-    console.log('Голосовое сообщение успешно отправлено');
-    
-    // Удаляем временные файлы
-    fs.unlinkSync(inputPath);
-    fs.unlinkSync(outputPath);
-    console.log('Временные файлы удалены');
-    
-    // Удаляем сообщение о обработке
-    await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
-    
-    // Очищаем сессию
-    ctx.session = null;
-  } catch (error) {
-    console.error('Ошибка при обработке голосового сообщения:', error);
-    await ctx.reply('❌ Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
-  }
 });
 
 // Обработка команды /start
