@@ -467,18 +467,43 @@ const startBot = async () => {
         }
 
         console.log('Запускаю бота...');
-        try {
-            await bot.launch();
-            console.log('Бот успешно запущен');
-        } catch (error) {
-            if (error.description && error.description.includes('Conflict: terminated by other getUpdates request')) {
-                console.log('Обнаружен конфликт с другим экземпляром бота. Пробую перезапустить...');
-                // Ждем 5 секунд перед повторной попыткой
-                await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Обработка сигналов завершения
+        process.on('SIGTERM', async () => {
+            console.log('Получен сигнал SIGTERM, завершаю работу...');
+            await bot.stop('SIGTERM');
+            process.exit(0);
+        });
+
+        process.on('SIGINT', async () => {
+            console.log('Получен сигнал SIGINT, завершаю работу...');
+            await bot.stop('SIGINT');
+            process.exit(0);
+        });
+
+        // Запуск бота с повторными попытками
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries) {
+            try {
                 await bot.launch();
-                console.log('Бот успешно перезапущен');
-            } else {
-                throw error;
+                console.log('Бот успешно запущен');
+                break;
+            } catch (error) {
+                retryCount++;
+                if (error.description && error.description.includes('Conflict: terminated by other getUpdates request')) {
+                    console.log(`Обнаружен конфликт с другим экземпляром бота. Попытка ${retryCount} из ${maxRetries}`);
+                    if (retryCount < maxRetries) {
+                        // Увеличиваем время ожидания с каждой попыткой
+                        await new Promise(resolve => setTimeout(resolve, 5000 * retryCount));
+                    } else {
+                        console.log('Превышено максимальное количество попыток. Завершаю работу.');
+                        process.exit(1);
+                    }
+                } else {
+                    throw error;
+                }
             }
         }
     } catch (error) {
@@ -486,10 +511,6 @@ const startBot = async () => {
         process.exit(1);
     }
 };
-
-// Включаем graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 // Запускаем бота
 startBot(); 
