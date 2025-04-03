@@ -41,8 +41,8 @@ bot.on('inline_query', async (ctx) => {
     await ctx.answerInlineQuery([{
       type: 'article',
       id: '1',
-      title: 'Анализ текста',
-      description: 'Показать топ-15 самых частых слов',
+      title: 'Показать топ-15 частых слов',
+      description: 'Анализ частоты слов в тексте',
       input_message_content: {
         message_text: response
       }
