@@ -6,6 +6,14 @@ const axios = require('axios');
 const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
+// Логирование всех переменных окружения
+console.log('=== Environment Variables ===');
+console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'Установлен' : 'Отсутствует');
+console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME);
+console.log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? 'Установлен' : 'Отсутствует');
+console.log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Отсутствует');
+console.log('=============================');
+
 const app = express();
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
