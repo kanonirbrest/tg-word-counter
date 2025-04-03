@@ -162,11 +162,21 @@ async function applyAudioFilter(inputFile, filterType) {
 
 // Обработка голосовых сообщений
 bot.on('voice', async (ctx) => {
+  console.log('=== VOICE MESSAGE START ===');
+  console.log('Получено голосовое сообщение от:', ctx.from.id);
+  console.log('Длина сообщения:', ctx.message.voice.duration, 'секунд');
+  
   try {
-    console.log('=== Начало обработки голосового сообщения ===');
-    console.log('Сообщение:', ctx.message);
-    console.log('Сессия:', ctx.session);
+    const session = getSession(ctx.from.id);
+    console.log('Текущая сессия:', session);
     
+    if (!session || !session.filterType) {
+      console.log('Сессия не найдена или тип фильтра не установлен');
+      await ctx.reply('Пожалуйста, сначала выберите эффект через команду или inline режим');
+      return;
+    }
+
+    console.log('Начинаю обработку голосового сообщения');
     const voice = ctx.message.voice;
     console.log('Голосовое сообщение:', voice);
     
@@ -188,8 +198,8 @@ bot.on('voice', async (ctx) => {
     
     // Определяем тип фильтра из сессии
     let filterType = 'volume'; // По умолчанию
-    if (ctx.session && ctx.session.filterType) {
-      filterType = ctx.session.filterType;
+    if (session && session.filterType) {
+      filterType = session.filterType;
       console.log('Тип фильтра из сессии:', filterType);
     } else {
       console.log('Сессия не найдена, использую volume по умолчанию');
@@ -229,113 +239,30 @@ bot.on('voice', async (ctx) => {
 
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
-  const query = ctx.inlineQuery.query;
-  console.log('Получен inline запрос:', query);
+  console.log('=== INLINE QUERY START ===');
+  console.log('Получен inline запрос:', ctx.inlineQuery.query);
+  console.log('От пользователя:', ctx.from.id);
   
-  // Показываем доступные фильтры
-  const results = [
-    {
+  try {
+    const results = inlineQueryOptions.map(option => ({
       type: 'article',
-      id: '1',
-      title: 'Усилить бас',
-      description: 'Наложить фильтр усиления баса на голосовое сообщение',
+      id: option.id,
+      title: option.title,
+      description: option.description,
       input_message_content: {
-        message_text: '🎵 Выберите эффект для голосового сообщения',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '🎤 Записать голосовое', callback_data: 'record_bass' }
-          ]]
-        }
-      }
-    },
-    {
-      type: 'article',
-      id: '2',
-      title: 'Усилить высокие частоты',
-      description: 'Наложить фильтр усиления высоких частот на голосовое сообщение',
-      input_message_content: {
-        message_text: '🎵 Выберите эффект для голосового сообщения',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '🎤 Записать голосовое', callback_data: 'record_treble' }
-          ]]
-        }
-      }
-    },
-    {
-      type: 'article',
-      id: '3',
-      title: 'Добавить эхо',
-      description: 'Наложить фильтр эхо на голосовое сообщение',
-      input_message_content: {
-        message_text: '🎵 Выберите эффект для голосового сообщения',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '🎤 Записать голосовое', callback_data: 'record_echo' }
-          ]]
-        }
-      }
-    },
-    {
-      type: 'article',
-      id: '4',
-      title: 'Добавить реверберацию',
-      description: 'Наложить фильтр реверберации на голосовое сообщение',
-      input_message_content: {
-        message_text: '🎵 Выберите эффект для голосового сообщения',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '🎤 Записать голосовое', callback_data: 'record_reverb' }
-          ]]
-        }
-      }
-    },
-    {
-      type: 'article',
-      id: '5',
-      title: 'Ускорить воспроизведение',
-      description: 'Ускорить воспроизведение голосового сообщения',
-      input_message_content: {
-        message_text: '🎵 Выберите эффект для голосового сообщения',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '🎤 Записать голосовое', callback_data: 'record_speed' }
-          ]]
-        }
-      }
-    },
-    {
-      type: 'article',
-      id: '6',
-      title: 'Усилить громкость',
-      description: 'Усилить громкость голосового сообщения',
-      input_message_content: {
-        message_text: '🎵 Выберите эффект для голосового сообщения',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '🎤 Записать голосовое', callback_data: 'record_volume' }
-          ]]
-        }
-      }
-    },
-    {
-      type: 'article',
-      id: '7',
-      title: 'Грубый голос',
-      description: 'Добавить эффект искажения голоса',
-      input_message_content: {
-        message_text: '🎵 Выберите эффект для голосового сообщения',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '🎤 Записать голосовое', callback_data: 'record_distortion' }
-          ]]
-        }
-      }
-    }
-  ];
-  
-  console.log('Отправляю результаты inline запроса');
-  await ctx.answerInlineQuery(results);
+        message_text: option.messageText
+      },
+      reply_markup: option.replyMarkup
+    }));
+
+    console.log('Подготовлено результатов:', results.length);
+    console.log('Отправляю результаты inline запроса');
+    await ctx.answerInlineQuery(results);
+    console.log('=== INLINE QUERY END ===');
+  } catch (error) {
+    console.error('Ошибка при обработке inline запроса:', error);
+    console.error('Стек ошибки:', error.stack);
+  }
 });
 
 // Обработка команды /start
