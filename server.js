@@ -149,109 +149,58 @@ async function downloadFile(fileId, fileName) {
 
 // Функция для применения аудиофильтра через Cloudinary
 async function applyAudioFilter(inputFile, filterType) {
-  try {
-    console.log(`Загружаю файл в Cloudinary: ${inputFile}`);
-    const uploadResult = await cloudinary.uploader.upload(inputFile, {
-      resource_type: 'video',
-      format: 'ogg'
-    });
-    
-    console.log('Файл загружен в Cloudinary, public_id:', uploadResult.public_id);
-    console.log('Применяю фильтр:', filterType);
-    let transformation = [];
-    
-    switch (filterType) {
-      case 'bass':
-        transformation = [
-          { audio_codec: 'aac', audio_bitrate: '128k' },
-          { audio_frequency: 44100 },
-          { audio_effects: 'bass_boost' }
-        ];
-        break;
-      case 'treble':
-        transformation = [
-          { audio_codec: 'aac', audio_bitrate: '128k' },
-          { audio_frequency: 44100 },
-          { audio_effects: 'treble_boost' }
-        ];
-        break;
-      case 'echo':
-        transformation = [
-          { audio_codec: 'aac', audio_bitrate: '128k' },
-          { audio_frequency: 44100 },
-          { audio_effects: 'echo' }
-        ];
-        break;
-      case 'reverb':
-        transformation = [
-          { audio_codec: 'aac', audio_bitrate: '128k' },
-          { audio_frequency: 44100 },
-          { audio_effects: 'reverb' }
-        ];
-        break;
-      case 'speed':
-        transformation = [
-          { audio_codec: 'aac', audio_bitrate: '128k' },
-          { audio_frequency: 44100 },
-          { audio_effects: 'speed_up' }
-        ];
-        break;
-      case 'distortion':
-        transformation = [
-          { audio_codec: 'aac', audio_bitrate: '128k' },
-          { audio_frequency: 44100 },
-          { audio_effects: 'distortion' }
-        ];
-        break;
-      default:
-        transformation = [
-          { audio_codec: 'aac', audio_bitrate: '128k' },
-          { audio_frequency: 44100 },
-          { audio_effects: 'volume_up' }
-        ];
+    try {
+        console.log('=== Начало обработки аудио ===');
+        console.log('Входной файл:', inputFile);
+        console.log('Тип фильтра:', filterType);
+        
+        // Загружаем файл в Cloudinary
+        console.log('Загружаю файл в Cloudinary...');
+        const uploadResult = await cloudinary.uploader.upload(inputFile, {
+            resource_type: 'video',
+            format: 'ogg'
+        });
+        console.log('Файл загружен в Cloudinary:', uploadResult.public_id);
+        
+        // Применяем фильтр
+        console.log('Применяю фильтр в Cloudinary...');
+        const result = await cloudinary.video(uploadResult.public_id, {
+            resource_type: 'video',
+            format: 'ogg',
+            audio_codec: 'libvorbis',
+            audio_effects: filterType
+        });
+        console.log('Фильтр применен, URL результата:', result);
+        
+        // Скачиваем обработанный файл
+        console.log('Скачиваю обработанный файл...');
+        const response = await axios({
+            method: 'GET',
+            url: result,
+            responseType: 'stream'
+        });
+        
+        const outputFile = path.join(tempDir, `processed_${path.basename(inputFile)}`);
+        console.log('Сохраняю в файл:', outputFile);
+        
+        const writer = fs.createWriteStream(outputFile);
+        response.data.pipe(writer);
+        
+        return new Promise((resolve, reject) => {
+            writer.on('finish', () => {
+                console.log('Файл успешно сохранен:', outputFile);
+                resolve(outputFile);
+            });
+            writer.on('error', (err) => {
+                console.error('Ошибка при сохранении файла:', err);
+                reject(err);
+            });
+        });
+    } catch (error) {
+        console.error('Ошибка при обработке аудио:', error);
+        console.error('Стек ошибки:', error.stack);
+        throw error;
     }
-    
-    console.log('Трансформация:', JSON.stringify(transformation));
-    const result = await cloudinary.utils.generate_transformation_string(transformation);
-    console.log('Строка трансформации:', result);
-    
-    const processedUrl = cloudinary.url(uploadResult.public_id, {
-      resource_type: 'video',
-      format: 'ogg',
-      transformation: result
-    });
-    console.log('URL обработанного файла:', processedUrl);
-    
-    console.log('Скачиваю результат');
-    const response = await axios({
-      method: 'GET',
-      url: processedUrl,
-      responseType: 'stream'
-    });
-    
-    const outputFile = path.join(tempDir, `processed_${path.basename(inputFile)}`);
-    console.log('Сохраняю в файл:', outputFile);
-    const writer = fs.createWriteStream(outputFile);
-    response.data.pipe(writer);
-    
-    return new Promise((resolve, reject) => {
-      writer.on('finish', () => {
-        console.log('Файл успешно сохранен');
-        // Удаляем загруженный файл из Cloudinary
-        cloudinary.uploader.destroy(uploadResult.public_id, { resource_type: 'video' })
-          .then(() => console.log('Файл удален из Cloudinary'))
-          .catch(err => console.error('Ошибка при удалении файла из Cloudinary:', err));
-        resolve(outputFile);
-      });
-      writer.on('error', (err) => {
-        console.error('Ошибка при сохранении файла:', err);
-        reject(err);
-      });
-    });
-  } catch (error) {
-    console.error('Ошибка при обработке аудио:', error);
-    throw error;
-  }
 }
 
 // Функции для работы с сессиями
@@ -354,8 +303,14 @@ bot.on('voice', async (ctx) => {
         
         // Отправляем обработанное аудио в тот же чат
         console.log('Отправляю голосовое сообщение в чат:', ctx.chat.id);
-        await ctx.replyWithVoice({ source: outputPath });
-        console.log('Голосовое сообщение успешно отправлено');
+        try {
+            await ctx.replyWithVoice({ source: outputPath });
+            console.log('Голосовое сообщение успешно отправлено');
+        } catch (error) {
+            console.error('Ошибка при отправке голосового сообщения:', error);
+            console.error('Стек ошибки:', error.stack);
+            throw error;
+        }
         
         // Удаляем временные файлы
         fs.unlinkSync(inputPath);
