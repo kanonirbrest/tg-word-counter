@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: tg-word-counter-bot
+    env: node
+    buildCommand: npm install
+    startCommand: npm run server
+    envVars:
+      - key: BOT_TOKEN
+        sync: false 
