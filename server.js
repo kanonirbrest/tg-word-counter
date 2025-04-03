@@ -419,45 +419,38 @@ bot.command('help', async (ctx) => {
 
 // Обработка callback запросов от inline кнопок
 bot.on('callback_query', async (ctx) => {
-  try {
     console.log('=== Начало обработки callback запроса ===');
-    console.log('Callback данные:', ctx.callbackQuery);
+    console.log('Callback данные:', JSON.stringify(ctx.callbackQuery, null, 2));
     
-    const callbackData = ctx.callbackQuery.data;
-    console.log('Получен callback запрос:', callbackData);
-    
-    if (callbackData.startsWith('record_')) {
-      const filterType = callbackData.replace('record_', '');
-      console.log('Устанавливаю тип фильтра в сессию:', filterType);
-      
-      // Сохраняем тип фильтра в сессии
-      ctx.session = { filterType };
-      console.log('Сессия после установки:', ctx.session);
-      
-      // Отвечаем на callback запрос
-      await ctx.answerCbQuery('Теперь отправьте голосовое сообщение');
-      
-      // Отправляем сообщение с инструкцией
-      let effectName = '';
-      switch (filterType) {
-        case 'bass': effectName = 'усиления баса'; break;
-        case 'treble': effectName = 'усиления высоких частот'; break;
-        case 'echo': effectName = 'добавления эхо'; break;
-        case 'reverb': effectName = 'добавления реверберации'; break;
-        case 'speed': effectName = 'ускорения воспроизведения'; break;
-        case 'volume': effectName = 'усиления громкости'; break;
-        case 'distortion': effectName = 'добавления эффекта искажения'; break;
-        default: effectName = filterType;
-      }
-      
-      await ctx.reply(`🎵 Отправьте голосовое сообщение для ${effectName}`);
-      console.log('=== Обработка callback запроса завершена ===');
+    try {
+        const data = ctx.callbackQuery.data;
+        console.log('Получен callback запрос:', data);
+        
+        if (data.startsWith('record_')) {
+            const filterType = data.replace('record_', '');
+            console.log('Устанавливаю тип фильтра в сессию:', filterType);
+            
+            // Сохраняем тип фильтра в сессии
+            const session = getSession(ctx.from.id);
+            session.filterType = filterType;
+            saveSession(ctx.from.id, session);
+            console.log('Сессия после установки:', session);
+            
+            // Отвечаем на callback запрос
+            await ctx.answerCallbackQuery({
+                text: `Выбран эффект: ${filterType}. Теперь отправьте голосовое сообщение.`
+            });
+            
+            // Отправляем сообщение с просьбой отправить голосовое
+            await ctx.api.sendMessage(ctx.from.id, '🎤 Пожалуйста, отправьте голосовое сообщение для обработки');
+        }
+    } catch (error) {
+        console.error('Ошибка при обработке callback запроса:', error);
+        console.error('Стек ошибки:', error.stack);
+        await ctx.answerCallbackQuery({
+            text: 'Произошла ошибка. Пожалуйста, попробуйте еще раз.'
+        });
     }
-  } catch (error) {
-    console.error('Ошибка при обработке callback запроса:', error);
-    console.error('Стек ошибки:', error.stack);
-    await ctx.answerCbQuery('Произошла ошибка. Пожалуйста, попробуйте еще раз.');
-  }
 });
 
 // Запуск бота
