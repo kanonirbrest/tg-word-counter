@@ -235,76 +235,71 @@ bot.on('message', async (ctx) => {
     console.log('=== Входящее сообщение ===');
     console.log('Тип сообщения:', ctx.message ? Object.keys(ctx.message).filter(key => key !== 'from' && key !== 'chat' && key !== 'date') : 'неизвестно');
     console.log('От пользователя:', ctx.from.id);
-    console.log('Данные сообщения:', JSON.stringify(ctx.message, null, 2));
-    console.log('========================');
-});
-
-// Обработчик голосовых сообщений
-bot.on('voice', async (ctx) => {
-    console.log('=== VOICE MESSAGE RECEIVED ===');
-    console.log('Тип сообщения:', ctx.message ? Object.keys(ctx.message).filter(key => key !== 'from' && key !== 'chat' && key !== 'date') : 'неизвестно');
-    console.log('От пользователя:', ctx.from.id);
     console.log('В чате:', ctx.chat.id);
     console.log('Тип чата:', ctx.chat.type);
     console.log('Данные сообщения:', JSON.stringify(ctx.message, null, 2));
     console.log('========================');
-    
-    try {
-        // Получаем информацию о сессии
-        const session = await getSession(ctx.from.id);
-        console.log('Текущая сессия:', session);
-        
-        if (!session || !session.filterType) {
-            console.log('Нет активной сессии или типа фильтра');
-            await ctx.reply('Пожалуйста, сначала выберите эффект');
-            return;
+
+    // Если это голосовое сообщение, обрабатываем его
+    if (ctx.message.voice) {
+        console.log('=== VOICE MESSAGE RECEIVED ===');
+        try {
+            // Получаем информацию о сессии
+            const session = await getSession(ctx.from.id);
+            console.log('Текущая сессия:', session);
+            
+            if (!session || !session.filterType) {
+                console.log('Нет активной сессии или типа фильтра');
+                await ctx.reply('Пожалуйста, сначала выберите эффект');
+                return;
+            }
+            
+            // Скачиваем голосовое сообщение
+            console.log('Скачиваю голосовое сообщение...');
+            const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
+            const filePath = file.file_path;
+            const fileName = path.join(tempDir, `${ctx.message.voice.file_id}.ogg`);
+            
+            console.log('Путь к файлу:', filePath);
+            console.log('Сохраняю в:', fileName);
+            
+            const response = await axios({
+                method: 'GET',
+                url: `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`,
+                responseType: 'stream'
+            });
+            
+            const writer = fs.createWriteStream(fileName);
+            response.data.pipe(writer);
+            
+            await new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+            });
+            
+            console.log('Файл успешно скачан');
+            
+            // Применяем фильтр
+            console.log('Применяю фильтр:', session.filterType);
+            const processedFile = await applyAudioFilter(fileName, session.filterType);
+            console.log('Файл обработан:', processedFile);
+            
+            // Отправляем обработанное сообщение
+            console.log('Отправляю обработанное сообщение...');
+            await ctx.replyWithVoice({ source: processedFile });
+            console.log('Сообщение отправлено');
+            
+            // Очищаем временные файлы
+            console.log('Удаляю временные файлы...');
+            fs.unlinkSync(fileName);
+            fs.unlinkSync(processedFile);
+            console.log('Временные файлы удалены');
+            
+        } catch (error) {
+            console.error('Ошибка при обработке голосового сообщения:', error);
+            console.error('Стек ошибки:', error.stack);
+            await ctx.reply('Произошла ошибка при обработке голосового сообщения');
         }
-        
-        // Скачиваем голосовое сообщение
-        console.log('Скачиваю голосовое сообщение...');
-        const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
-        const filePath = file.file_path;
-        const fileName = path.join(tempDir, `${ctx.message.voice.file_id}.ogg`);
-        
-        console.log('Путь к файлу:', filePath);
-        console.log('Сохраняю в:', fileName);
-        
-        const response = await axios({
-            method: 'GET',
-            url: `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`,
-            responseType: 'stream'
-        });
-        
-        const writer = fs.createWriteStream(fileName);
-        response.data.pipe(writer);
-        
-        await new Promise((resolve, reject) => {
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-        });
-        
-        console.log('Файл успешно скачан');
-        
-        // Применяем фильтр
-        console.log('Применяю фильтр:', session.filterType);
-        const processedFile = await applyAudioFilter(fileName, session.filterType);
-        console.log('Файл обработан:', processedFile);
-        
-        // Отправляем обработанное сообщение
-        console.log('Отправляю обработанное сообщение...');
-        await ctx.replyWithVoice({ source: processedFile });
-        console.log('Сообщение отправлено');
-        
-        // Очищаем временные файлы
-        console.log('Удаляю временные файлы...');
-        fs.unlinkSync(fileName);
-        fs.unlinkSync(processedFile);
-        console.log('Временные файлы удалены');
-        
-    } catch (error) {
-        console.error('Ошибка при обработке голосового сообщения:', error);
-        console.error('Стек ошибки:', error.stack);
-        await ctx.reply('Произошла ошибка при обработке голосового сообщения');
     }
 });
 
