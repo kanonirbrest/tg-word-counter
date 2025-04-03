@@ -326,76 +326,60 @@ bot.on('inline_query', async (ctx) => {
   await ctx.answerInlineQuery(results);
 });
 
-// Обработка callback запросов от inline кнопок
-bot.on('callback_query', async (ctx) => {
-  const callbackData = ctx.callbackQuery.data;
-  console.log('Получен callback запрос:', callbackData);
-  
-  if (callbackData.startsWith('record_')) {
-    const filterType = callbackData.replace('record_', '');
-    ctx.session = { filterType };
-    console.log('Сохранен тип фильтра в сессии:', filterType);
-    await ctx.answerCbQuery('Теперь отправьте голосовое сообщение');
-    await ctx.reply('🎵 Отправьте голосовое сообщение для обработки с эффектом: ' + filterType);
-  }
-});
-
-// Обработка команд
-bot.command('bass', async (ctx) => {
-  await ctx.reply('🎵 Отправьте голосовое сообщение для усиления баса');
-  ctx.session = { filterType: 'bass' };
-});
-
-bot.command('treble', async (ctx) => {
-  await ctx.reply('🎵 Отправьте голосовое сообщение для усиления высоких частот');
-  ctx.session = { filterType: 'treble' };
-});
-
-bot.command('echo', async (ctx) => {
-  await ctx.reply('🎵 Отправьте голосовое сообщение для добавления эхо');
-  ctx.session = { filterType: 'echo' };
-});
-
-bot.command('reverb', async (ctx) => {
-  await ctx.reply('🎵 Отправьте голосовое сообщение для добавления реверберации');
-  ctx.session = { filterType: 'reverb' };
-});
-
-bot.command('speed', async (ctx) => {
-  await ctx.reply('🎵 Отправьте голосовое сообщение для ускорения воспроизведения');
-  ctx.session = { filterType: 'speed' };
-});
-
-bot.command('volume', async (ctx) => {
-  await ctx.reply('🎵 Отправьте голосовое сообщение для усиления громкости');
-  ctx.session = { filterType: 'volume' };
-});
-
-bot.command('distortion', async (ctx) => {
-  await ctx.reply('🎵 Отправьте голосовое сообщение для добавления эффекта искажения');
-  ctx.session = { filterType: 'distortion' };
-});
-
 // Обработка команды /start
 bot.command('start', async (ctx) => {
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: '🎵 Усилить бас', callback_data: 'record_bass' },
+        { text: '🎵 Усилить высокие частоты', callback_data: 'record_treble' }
+      ],
+      [
+        { text: '🎵 Добавить эхо', callback_data: 'record_echo' },
+        { text: '🎵 Добавить реверберацию', callback_data: 'record_reverb' }
+      ],
+      [
+        { text: '🎵 Ускорить воспроизведение', callback_data: 'record_speed' },
+        { text: '🎵 Усилить громкость', callback_data: 'record_volume' }
+      ],
+      [
+        { text: '🎵 Грубый голос', callback_data: 'record_distortion' }
+      ]
+    ]
+  };
+  
   await ctx.reply(
     'Привет! Я бот для обработки голосовых сообщений. Используйте меня:\n\n' +
     '1. В любом чате напишите @имя_бота\n' +
     '2. Выберите тип фильтра\n' +
     '3. Отправьте голосовое сообщение\n\n' +
-    'Или используйте команды:\n' +
-    '/bass - усилить бас\n' +
-    '/treble - усилить высокие частоты\n' +
-    '/echo - добавить эхо\n' +
-    '/reverb - добавить реверберацию\n' +
-    '/speed - ускорить воспроизведение\n' +
-    '/volume - усилить громкость\n' +
-    '/distortion - добавить эффект искажения'
+    'Или выберите эффект ниже:',
+    { reply_markup: keyboard }
   );
 });
 
 // Обработка команды /help
 bot.command('help', async (ctx) => {
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: '🎵 Усилить бас', callback_data: 'record_bass' },
+        { text: '🎵 Усилить высокие частоты', callback_data: 'record_treble' }
+      ],
+      [
+        { text: '🎵 Добавить эхо', callback_data: 'record_echo' },
+        { text: '🎵 Добавить реверберацию', callback_data: 'record_reverb' }
+      ],
+      [
+        { text: '🎵 Ускорить воспроизведение', callback_data: 'record_speed' },
+        { text: '🎵 Усилить громкость', callback_data: 'record_volume' }
+      ],
+      [
+        { text: '🎵 Грубый голос', callback_data: 'record_distortion' }
+      ]
+    ]
+  };
+  
   await ctx.reply(
     'Как использовать бота:\n\n' +
     '1. В любом чате напишите @имя_бота\n' +
@@ -408,15 +392,39 @@ bot.command('help', async (ctx) => {
     '   - Усилить громкость\n' +
     '   - Добавить эффект искажения\n' +
     '3. Отправьте голосовое сообщение\n\n' +
-    'Или используйте команды:\n' +
-    '/bass - усилить бас\n' +
-    '/treble - усилить высокие частоты\n' +
-    '/echo - добавить эхо\n' +
-    '/reverb - добавить реверберацию\n' +
-    '/speed - ускорить воспроизведение\n' +
-    '/volume - усилить громкость\n' +
-    '/distortion - добавить эффект искажения'
+    'Или выберите эффект ниже:',
+    { reply_markup: keyboard }
   );
+});
+
+// Обработка callback запросов от inline кнопок
+bot.on('callback_query', async (ctx) => {
+  const callbackData = ctx.callbackQuery.data;
+  console.log('Получен callback запрос:', callbackData);
+  
+  if (callbackData.startsWith('record_')) {
+    const filterType = callbackData.replace('record_', '');
+    ctx.session = { filterType };
+    console.log('Сохранен тип фильтра в сессии:', filterType);
+    
+    // Отвечаем на callback запрос
+    await ctx.answerCbQuery('Теперь отправьте голосовое сообщение');
+    
+    // Отправляем сообщение с инструкцией
+    let effectName = '';
+    switch (filterType) {
+      case 'bass': effectName = 'усиления баса'; break;
+      case 'treble': effectName = 'усиления высоких частот'; break;
+      case 'echo': effectName = 'добавления эхо'; break;
+      case 'reverb': effectName = 'добавления реверберации'; break;
+      case 'speed': effectName = 'ускорения воспроизведения'; break;
+      case 'volume': effectName = 'усиления громкости'; break;
+      case 'distortion': effectName = 'добавления эффекта искажения'; break;
+      default: effectName = filterType;
+    }
+    
+    await ctx.reply(`🎵 Отправьте голосовое сообщение для ${effectName}`);
+  }
 });
 
 // Запуск бота
