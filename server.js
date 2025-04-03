@@ -218,14 +218,16 @@ bot.on('voice', async (ctx) => {
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
   const query = ctx.inlineQuery.query;
+  console.log('Получен inline запрос:', query);
   
   // Если запрос содержит тип фильтра, сохраняем его в сессии
   if (query && ['bass', 'treble', 'echo', 'reverb', 'speed', 'volume', 'distortion'].includes(query)) {
     ctx.session = { filterType: query };
+    console.log('Сохранен тип фильтра в сессии:', query);
   }
   
   // Показываем доступные фильтры
-  await ctx.answerInlineQuery([
+  const results = [
     {
       type: 'article',
       id: '1',
@@ -235,7 +237,7 @@ bot.on('inline_query', async (ctx) => {
         message_text: '🎵 Нажмите на кнопку ниже, чтобы записать голосовое сообщение для усиления баса',
         reply_markup: {
           inline_keyboard: [[
-            { text: '🎤 Записать голосовое', switch_inline_query_current_chat: 'bass' }
+            { text: '🎤 Записать голосовое', callback_data: 'record_bass' }
           ]]
         }
       }
@@ -249,7 +251,7 @@ bot.on('inline_query', async (ctx) => {
         message_text: '🎵 Нажмите на кнопку ниже, чтобы записать голосовое сообщение для усиления высоких частот',
         reply_markup: {
           inline_keyboard: [[
-            { text: '🎤 Записать голосовое', switch_inline_query_current_chat: 'treble' }
+            { text: '🎤 Записать голосовое', callback_data: 'record_treble' }
           ]]
         }
       }
@@ -263,7 +265,7 @@ bot.on('inline_query', async (ctx) => {
         message_text: '🎵 Нажмите на кнопку ниже, чтобы записать голосовое сообщение для добавления эхо',
         reply_markup: {
           inline_keyboard: [[
-            { text: '🎤 Записать голосовое', switch_inline_query_current_chat: 'echo' }
+            { text: '🎤 Записать голосовое', callback_data: 'record_echo' }
           ]]
         }
       }
@@ -277,7 +279,7 @@ bot.on('inline_query', async (ctx) => {
         message_text: '🎵 Нажмите на кнопку ниже, чтобы записать голосовое сообщение для добавления реверберации',
         reply_markup: {
           inline_keyboard: [[
-            { text: '🎤 Записать голосовое', switch_inline_query_current_chat: 'reverb' }
+            { text: '🎤 Записать голосовое', callback_data: 'record_reverb' }
           ]]
         }
       }
@@ -291,7 +293,7 @@ bot.on('inline_query', async (ctx) => {
         message_text: '🎵 Нажмите на кнопку ниже, чтобы записать голосовое сообщение для ускорения воспроизведения',
         reply_markup: {
           inline_keyboard: [[
-            { text: '🎤 Записать голосовое', switch_inline_query_current_chat: 'speed' }
+            { text: '🎤 Записать голосовое', callback_data: 'record_speed' }
           ]]
         }
       }
@@ -305,7 +307,7 @@ bot.on('inline_query', async (ctx) => {
         message_text: '🎵 Нажмите на кнопку ниже, чтобы записать голосовое сообщение для усиления громкости',
         reply_markup: {
           inline_keyboard: [[
-            { text: '🎤 Записать голосовое', switch_inline_query_current_chat: 'volume' }
+            { text: '🎤 Записать голосовое', callback_data: 'record_volume' }
           ]]
         }
       }
@@ -319,12 +321,28 @@ bot.on('inline_query', async (ctx) => {
         message_text: '🎵 Нажмите на кнопку ниже, чтобы записать голосовое сообщение для добавления эффекта искажения',
         reply_markup: {
           inline_keyboard: [[
-            { text: '🎤 Записать голосовое', switch_inline_query_current_chat: 'distortion' }
+            { text: '🎤 Записать голосовое', callback_data: 'record_distortion' }
           ]]
         }
       }
     }
-  ]);
+  ];
+  
+  console.log('Отправляю результаты inline запроса');
+  await ctx.answerInlineQuery(results);
+});
+
+// Обработка callback запросов от inline кнопок
+bot.on('callback_query', async (ctx) => {
+  const callbackData = ctx.callbackQuery.data;
+  console.log('Получен callback запрос:', callbackData);
+  
+  if (callbackData.startsWith('record_')) {
+    const filterType = callbackData.replace('record_', '');
+    ctx.session = { filterType };
+    console.log('Сохранен тип фильтра в сессии:', filterType);
+    await ctx.answerCbQuery('Теперь отправьте голосовое сообщение');
+  }
 });
 
 // Обработка команд
