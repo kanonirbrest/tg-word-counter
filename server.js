@@ -205,19 +205,29 @@ async function applyAudioFilter(inputFile, filterType) {
 
 // Функции для работы с сессиями
 function getSession(userId) {
+    console.log('=== Получение сессии ===');
+    console.log('ID пользователя:', userId);
+    
     try {
         if (fs.existsSync('sessions.json')) {
             const sessions = JSON.parse(fs.readFileSync('sessions.json', 'utf8'));
+            console.log('Найдена сессия:', sessions[userId] || { filterType: 'volume' });
             return sessions[userId] || { filterType: 'volume' };
         }
+        console.log('Файл сессий не найден, возвращаю сессию по умолчанию');
         return { filterType: 'volume' };
     } catch (error) {
         console.error('Ошибка при чтении сессии:', error);
+        console.error('Стек ошибки:', error.stack);
         return { filterType: 'volume' };
     }
 }
 
 function saveSession(userId, session) {
+    console.log('=== Сохранение сессии ===');
+    console.log('ID пользователя:', userId);
+    console.log('Данные сессии:', session);
+    
     try {
         let sessions = {};
         if (fs.existsSync('sessions.json')) {
@@ -225,8 +235,10 @@ function saveSession(userId, session) {
         }
         sessions[userId] = session;
         fs.writeFileSync('sessions.json', JSON.stringify(sessions, null, 2));
+        console.log('Сессия успешно сохранена');
     } catch (error) {
         console.error('Ошибка при сохранении сессии:', error);
+        console.error('Стек ошибки:', error.stack);
     }
 }
 
@@ -245,7 +257,7 @@ bot.on('message', async (ctx) => {
         console.log('=== VOICE MESSAGE RECEIVED ===');
         try {
             // Получаем информацию о сессии
-            const session = await getSession(ctx.from.id);
+            const session = getSession(ctx.from.id);
             console.log('Текущая сессия:', session);
             
             if (!session || !session.filterType) {
