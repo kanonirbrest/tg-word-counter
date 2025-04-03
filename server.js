@@ -101,6 +101,13 @@ async function applyAudioFilter(inputFile, filterType) {
           { audio_effects: 'speed_up' }
         ];
         break;
+      case 'distortion':
+        transformation = [
+          { audio_codec: 'aac', audio_bitrate: '128k' },
+          { audio_frequency: 44100 },
+          { audio_effects: 'distortion' }
+        ];
+        break;
       default:
         transformation = [
           { audio_codec: 'aac', audio_bitrate: '128k' },
@@ -230,6 +237,20 @@ bot.on('inline_query', async (ctx) => {
           ]]
         }
       }
+    },
+    {
+      type: 'article',
+      id: '7',
+      title: 'Грубый голос',
+      description: 'Добавить эффект искажения голоса',
+      input_message_content: {
+        message_text: '🎵 Нажмите на кнопку ниже, чтобы записать голосовое сообщение для добавления эффекта искажения',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '🎤 Записать голосовое', switch_inline_query_current_chat: 'distortion' }
+          ]]
+        }
+      }
     }
   ]);
 });
@@ -263,6 +284,11 @@ bot.command('speed', async (ctx) => {
 bot.command('volume', async (ctx) => {
   await ctx.reply('🎵 Отправьте голосовое сообщение для усиления громкости');
   ctx.session = { filterType: 'volume' };
+});
+
+bot.command('distortion', async (ctx) => {
+  await ctx.reply('🎵 Отправьте голосовое сообщение для добавления эффекта искажения');
+  ctx.session = { filterType: 'distortion' };
 });
 
 // Обработка голосовых сообщений
@@ -299,6 +325,8 @@ bot.on('voice', async (ctx) => {
         filterType = 'reverb';
       } else if (text.includes('speed')) {
         filterType = 'speed';
+      } else if (text.includes('distortion')) {
+        filterType = 'distortion';
       }
     }
     
@@ -340,7 +368,8 @@ bot.command('start', async (ctx) => {
     '/echo - добавить эхо\n' +
     '/reverb - добавить реверберацию\n' +
     '/speed - ускорить воспроизведение\n' +
-    '/volume - усилить громкость'
+    '/volume - усилить громкость\n' +
+    '/distortion - добавить эффект искажения'
   );
 });
 
@@ -356,6 +385,7 @@ bot.command('help', async (ctx) => {
     '   - Добавить реверберацию\n' +
     '   - Ускорить воспроизведение\n' +
     '   - Усилить громкость\n' +
+    '   - Добавить эффект искажения\n' +
     '3. Отправьте голосовое сообщение\n\n' +
     'Или используйте команды:\n' +
     '/bass - усилить бас\n' +
@@ -363,7 +393,8 @@ bot.command('help', async (ctx) => {
     '/echo - добавить эхо\n' +
     '/reverb - добавить реверберацию\n' +
     '/speed - ускорить воспроизведение\n' +
-    '/volume - усилить громкость'
+    '/volume - усилить громкость\n' +
+    '/distortion - добавить эффект искажения'
   );
 });
 
