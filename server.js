@@ -316,8 +316,12 @@ bot.on('voice', async (ctx) => {
         const inputPath = path.join(tempDir, fileName);
         
         console.log('Скачиваю файл:', fileId);
-        // Отправляем сообщение о начале обработки в тот же чат
-        const processingMsg = await ctx.reply('🎵 Обрабатываю голосовое сообщение...');
+        
+        // Отправляем сообщение о начале обработки только в групповых чатах
+        let processingMsg = null;
+        if (ctx.chat.type !== 'private') {
+            processingMsg = await ctx.reply('🎵 Обрабатываю голосовое сообщение...');
+        }
         
         // Скачиваем голосовое сообщение
         await downloadFile(fileId, inputPath);
@@ -355,8 +359,10 @@ bot.on('voice', async (ctx) => {
         fs.unlinkSync(outputPath);
         console.log('Временные файлы удалены');
         
-        // Удаляем сообщение о обработке
-        await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
+        // Удаляем сообщение о обработке только если оно было отправлено
+        if (processingMsg) {
+            await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
+        }
         
         // Очищаем сессию
         saveSession(ctx.from.id, { filterType: 'volume' });
