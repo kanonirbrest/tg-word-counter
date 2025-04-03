@@ -185,6 +185,12 @@ bot.on('voice', async (ctx) => {
     let filterType = ctx.session?.filterType || 'volume';
     console.log('Тип фильтра из сессии:', filterType);
     
+    // Проверяем наличие сессии
+    if (!ctx.session) {
+      console.log('Сессия не найдена, использую volume по умолчанию');
+      ctx.session = { filterType: 'volume' };
+    }
+    
     console.log('Применяю фильтр:', filterType);
     // Применяем фильтр через Cloudinary
     const outputPath = await applyAudioFilter(inputPath, filterType);
@@ -404,8 +410,9 @@ bot.on('callback_query', async (ctx) => {
   
   if (callbackData.startsWith('record_')) {
     const filterType = callbackData.replace('record_', '');
+    console.log('Устанавливаю тип фильтра в сессию:', filterType);
     ctx.session = { filterType };
-    console.log('Сохранен тип фильтра в сессии:', filterType);
+    console.log('Сессия после установки:', ctx.session);
     
     // Отвечаем на callback запрос
     await ctx.answerCbQuery('Теперь отправьте голосовое сообщение');
