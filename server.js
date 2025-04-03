@@ -154,6 +154,15 @@ async function applyAudioFilter(inputFile, filterType) {
         console.log('Входной файл:', inputFile);
         console.log('Тип фильтра:', filterType);
         
+        // Проверяем, что входной файл существует
+        if (!fs.existsSync(inputFile)) {
+            throw new Error(`Входной файл не найден: ${inputFile}`);
+        }
+        
+        // Проверяем размер входного файла
+        const stats = fs.statSync(inputFile);
+        console.log('Размер входного файла:', stats.size, 'байт');
+        
         // Загружаем файл в Cloudinary
         console.log('Загружаю файл в Cloudinary...');
         const uploadResult = await cloudinary.uploader.upload(inputFile, {
@@ -189,6 +198,9 @@ async function applyAudioFilter(inputFile, filterType) {
         return new Promise((resolve, reject) => {
             writer.on('finish', () => {
                 console.log('Файл успешно сохранен:', outputFile);
+                // Проверяем размер выходного файла
+                const outputStats = fs.statSync(outputFile);
+                console.log('Размер выходного файла:', outputStats.size, 'байт');
                 resolve(outputFile);
             });
             writer.on('error', (err) => {
