@@ -501,28 +501,28 @@ bot.on('callback_query', async (ctx) => {
 
 // Запуск бота
 const startBot = async () => {
-  try {
-    // Проверяем, что все необходимые переменные окружения установлены
-    if (!process.env.BOT_TOKEN) {
-      throw new Error('BOT_TOKEN не установлен');
-    }
-    if (!process.env.CLOUDINARY_CLOUD_NAME) {
-      throw new Error('CLOUDINARY_CLOUD_NAME не установлен');
-    }
-    if (!process.env.CLOUDINARY_API_KEY) {
-      throw new Error('CLOUDINARY_API_KEY не установлен');
-    }
-    if (!process.env.CLOUDINARY_API_SECRET) {
-      throw new Error('CLOUDINARY_API_SECRET не установлен');
-    }
+    try {
+        // Проверяем, что все необходимые переменные окружения установлены
+        if (!process.env.BOT_TOKEN) {
+            throw new Error('BOT_TOKEN не установлен');
+        }
+        if (!process.env.CLOUDINARY_CLOUD_NAME) {
+            throw new Error('CLOUDINARY_CLOUD_NAME не установлен');
+        }
+        if (!process.env.CLOUDINARY_API_KEY) {
+            throw new Error('CLOUDINARY_API_KEY не установлен');
+        }
+        if (!process.env.CLOUDINARY_API_SECRET) {
+            throw new Error('CLOUDINARY_API_SECRET не установлен');
+        }
 
-    console.log('Запускаю бота...');
-    await bot.launch();
-    console.log('Бот успешно запущен');
-  } catch (error) {
-    console.error('Ошибка при запуске бота:', error);
-    process.exit(1);
-  }
+        console.log('Запускаю бота...');
+        await bot.launch();
+        console.log('Бот успешно запущен');
+    } catch (error) {
+        console.error('Ошибка при запуске бота:', error);
+        process.exit(1);
+    }
 };
 
 // Включаем graceful stop
