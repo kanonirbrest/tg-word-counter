@@ -389,11 +389,18 @@ bot.on('message', async (ctx) => {
         }
     } else {
         console.log('Сообщение не содержит голосового сообщения');
+        console.log('Типы сообщения:', Object.keys(ctx.message || {}));
     }
     
     console.log('\n****************************************');
     console.log('********** КОНЕЦ ОБРАБОТКИ *************');
     console.log('****************************************\n');
+});
+
+// Добавляем отдельный обработчик для голосовых сообщений
+bot.on('voice', async (ctx) => {
+    console.log('\n!!! ПОЛУЧЕНО ГОЛОСОВОЕ СООБЩЕНИЕ ЧЕРЕЗ VOICE HANDLER !!!');
+    console.log('Данные голосового сообщения:', JSON.stringify(ctx.message.voice, null, 2));
 });
 
 // Обработка inline запросов
