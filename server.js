@@ -49,26 +49,47 @@ async function applyAudioFilter(inputFile, outputFile, filterType) {
     // Выбираем фильтр в зависимости от типа
     switch (filterType) {
       case 'bass':
-        command = command.audioFilters('bass=g=5');
+        command = command.audioFilters([
+          'bass=g=20:f=110:w=0.3',
+          'volume=1.5'
+        ]);
         break;
       case 'treble':
-        command = command.audioFilters('treble=g=5');
+        command = command.audioFilters([
+          'treble=g=20:f=3000:w=0.3',
+          'volume=1.5'
+        ]);
         break;
       case 'echo':
-        command = command.audioFilters('aecho=0.8:0.5:6:0.4');
+        command = command.audioFilters([
+          'aecho=0.8:0.88:6:0.4',
+          'volume=1.5'
+        ]);
         break;
       case 'reverb':
-        command = command.audioFilters('areverse,aecho=0.8:0.5:6:0.4,areverse');
+        command = command.audioFilters([
+          'areverse',
+          'aecho=0.8:0.88:6:0.4',
+          'areverse',
+          'volume=1.5'
+        ]);
         break;
       case 'speed':
-        command = command.audioFilters('atempo=1.5');
+        command = command.audioFilters([
+          'atempo=2.0',
+          'volume=1.5'
+        ]);
         break;
       default:
-        command = command.audioFilters('volume=2');
+        command = command.audioFilters([
+          'volume=3.0'
+        ]);
     }
     
     command
       .output(outputFile)
+      .audioCodec('libopus')
+      .audioBitrate('128k')
       .on('end', () => {
         resolve();
       })
