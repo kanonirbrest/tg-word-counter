@@ -270,16 +270,6 @@ bot.on('message', async (ctx) => {
         console.log('File ID:', ctx.message.voice.file_id);
         console.log('MIME тип:', ctx.message.voice.mime_type);
         console.log('Полные данные голосового сообщения:', JSON.stringify(ctx.message.voice, null, 2));
-    }
-    
-    console.log('Данные сообщения:', JSON.stringify(ctx.message, null, 2));
-    console.log('========================\n');
-
-    // Если это голосовое сообщение, обрабатываем его
-    if (ctx.message.voice) {
-        console.log('=== VOICE MESSAGE RECEIVED ===');
-        console.log('Длина сообщения:', ctx.message.voice.duration, 'секунд');
-        console.log('Полные данные голосового сообщения:', JSON.stringify(ctx.message.voice, null, 2));
         
         try {
             // Получаем информацию о сессии
@@ -339,6 +329,9 @@ bot.on('message', async (ctx) => {
             await ctx.reply('Произошла ошибка при обработке голосового сообщения');
         }
     }
+    
+    console.log('Данные сообщения:', JSON.stringify(ctx.message, null, 2));
+    console.log('========================\n');
 });
 
 // Обработка inline запросов
