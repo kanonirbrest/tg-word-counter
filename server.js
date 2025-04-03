@@ -241,6 +241,33 @@ async function applyAudioFilter(inputFile, filterType) {
   }
 }
 
+// Функции для работы с сессиями
+function getSession(userId) {
+    try {
+        if (fs.existsSync('sessions.json')) {
+            const sessions = JSON.parse(fs.readFileSync('sessions.json', 'utf8'));
+            return sessions[userId] || { filterType: 'volume' };
+        }
+        return { filterType: 'volume' };
+    } catch (error) {
+        console.error('Ошибка при чтении сессии:', error);
+        return { filterType: 'volume' };
+    }
+}
+
+function saveSession(userId, session) {
+    try {
+        let sessions = {};
+        if (fs.existsSync('sessions.json')) {
+            sessions = JSON.parse(fs.readFileSync('sessions.json', 'utf8'));
+        }
+        sessions[userId] = session;
+        fs.writeFileSync('sessions.json', JSON.stringify(sessions, null, 2));
+    } catch (error) {
+        console.error('Ошибка при сохранении сессии:', error);
+    }
+}
+
 // Обработка голосовых сообщений
 bot.on('voice', async (ctx) => {
   console.log('=== VOICE MESSAGE START ===');
@@ -417,7 +444,7 @@ bot.command('help', async (ctx) => {
   );
 });
 
-// Обработка callback запросов от inline кнопок
+// Обработка callback запросов
 bot.on('callback_query', async (ctx) => {
     console.log('=== Начало обработки callback запроса ===');
     console.log('Callback данные:', JSON.stringify(ctx.callbackQuery, null, 2));
@@ -437,9 +464,7 @@ bot.on('callback_query', async (ctx) => {
             console.log('Сессия после установки:', session);
             
             // Отвечаем на callback запрос
-            await ctx.answerCallbackQuery({
-                text: `Выбран эффект: ${filterType}. Теперь отправьте голосовое сообщение.`
-            });
+            await ctx.answerCbQuery(`Выбран эффект: ${filterType}. Теперь отправьте голосовое сообщение.`);
             
             // Отправляем сообщение с просьбой отправить голосовое
             await ctx.api.sendMessage(ctx.from.id, '🎤 Пожалуйста, отправьте голосовое сообщение для обработки');
@@ -447,9 +472,7 @@ bot.on('callback_query', async (ctx) => {
     } catch (error) {
         console.error('Ошибка при обработке callback запроса:', error);
         console.error('Стек ошибки:', error.stack);
-        await ctx.answerCallbackQuery({
-            text: 'Произошла ошибка. Пожалуйста, попробуйте еще раз.'
-        });
+        await ctx.answerCbQuery('Произошла ошибка. Пожалуйста, попробуйте еще раз.');
     }
 });
 
