@@ -81,8 +81,6 @@ async function applyAudioFilter(inputFile, outputFile, filterType) {
 
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
-  const query = ctx.inlineQuery.query;
-  
   // Показываем доступные фильтры
   await ctx.answerInlineQuery([
     {
