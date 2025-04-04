@@ -173,30 +173,13 @@ async function applyAudioFilter(inputFile, filterType) {
         console.log('Файл загружен в Cloudinary:', uploadResult.public_id);
         
         // Применяем фильтр в зависимости от типа
-        console.log('Применяю фильтр в Cloudinary...');
-        let audioEffects = [];
-        
-        switch(filterType) {
-            case 'distortion':
-                audioEffects = ['distortion:20'];
-                break;
-            case 'volume':
-                audioEffects = ['volume:0.5'];
-                break;
-            case 'echo':
-                audioEffects = ['echo:0.5:0.5:0.5'];
-                break;
-            default:
-                audioEffects = ['volume:1.0'];
-        }
-        
-        console.log('Применяемые эффекты:', audioEffects);
+        console.log('Применяемые эффекты:', filterType);
         
         const result = await cloudinary.url(uploadResult.public_id, {
             resource_type: 'video',
             format: 'ogg',
             audio_codec: 'libvorbis',
-            audio_effects: audioEffects
+            audio_effects: filterType
         });
         
         console.log('Фильтр применен, URL результата:', result);
@@ -315,8 +298,8 @@ bot.on('message', async (ctx) => {
         
         try {
             // Получаем информацию о сессии
+            console.log('\n=== Проверка сессии ===');
             const session = getSession(ctx.from.id);
-            console.log('\n=== Информация о сессии ===');
             console.log('Текущая сессия:', session);
             
             if (!session || !session.filterType) {
@@ -327,7 +310,7 @@ bot.on('message', async (ctx) => {
             
             // Скачиваем голосовое сообщение
             console.log('\n=== Начало обработки голосового сообщения ===');
-            console.log('Скачиваю голосовое сообщение...');
+            console.log('Получаю информацию о файле...');
             
             // Получаем информацию о файле
             const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
@@ -340,6 +323,7 @@ bot.on('message', async (ctx) => {
             console.log('Сохраняю в:', fileName);
             
             // Скачиваем файл
+            console.log('Скачиваю файл...');
             const response = await axios({
                 method: 'GET',
                 url: `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`,
@@ -367,16 +351,19 @@ bot.on('message', async (ctx) => {
             // Применяем фильтр
             console.log('\n=== Применение фильтра ===');
             console.log('Тип фильтра:', session.filterType);
+            console.log('Начинаю обработку файла...');
             const processedFile = await applyAudioFilter(fileName, session.filterType);
             console.log('✅ Файл обработан:', processedFile);
             
             // Отправляем обработанное сообщение
             console.log('\n=== Отправка обработанного сообщения ===');
+            console.log('Отправляю обработанное голосовое сообщение...');
             await ctx.replyWithVoice({ source: processedFile });
             console.log('✅ Сообщение отправлено');
             
             // Очищаем временные файлы
             console.log('\n=== Очистка временных файлов ===');
+            console.log('Удаляю временные файлы...');
             fs.unlinkSync(fileName);
             fs.unlinkSync(processedFile);
             console.log('✅ Временные файлы удалены');
@@ -385,7 +372,12 @@ bot.on('message', async (ctx) => {
             console.error('\n❌❌❌ ОШИБКА ПРИ ОБРАБОТКЕ ГОЛОСОВОГО СООБЩЕНИЯ ❌❌❌');
             console.error('Описание ошибки:', error.message);
             console.error('Стек ошибки:', error.stack);
-            await ctx.reply('Произошла ошибка при обработке голосового сообщения');
+            try {
+                await ctx.reply('Произошла ошибка при обработке голосового сообщения');
+                console.log('✅ Сообщение об ошибке отправлено');
+            } catch (error) {
+                console.error('❌ Ошибка при отправке сообщения об ошибке:', error);
+            }
         }
     } else {
         console.log('Сообщение не содержит голосового сообщения');
@@ -401,6 +393,7 @@ bot.on('message', async (ctx) => {
 bot.on('inline_query', async (ctx) => {
     console.log('\n=== INLINE QUERY START ===');
     console.log('Получен inline запрос от пользователя:', ctx.from.id);
+    console.log('Данные запроса:', JSON.stringify(ctx.inlineQuery, null, 2));
     
     const results = [
         {
@@ -442,8 +435,14 @@ bot.on('inline_query', async (ctx) => {
     ];
     
     console.log('Подготовлено результатов:', results.length);
-    await ctx.answerInlineQuery(results);
-    console.log('Отправляю результаты inline запроса');
+    console.log('Отправляю результаты inline запроса...');
+    try {
+        await ctx.answerInlineQuery(results);
+        console.log('✅ Результаты успешно отправлены');
+    } catch (error) {
+        console.error('❌ Ошибка при отправке результатов:', error);
+        console.error('Стек ошибки:', error.stack);
+    }
     console.log('=== INLINE QUERY END ===\n');
 });
 
@@ -464,12 +463,15 @@ bot.on('callback_query', async (ctx) => {
             
             // Сохраняем тип фильтра в сессии
             const session = getSession(ctx.from.id);
+            console.log('Текущая сессия до изменения:', session);
             session.filterType = filterType;
             saveSession(ctx.from.id, session);
             console.log('Сессия после установки:', session);
             
             // Отвечаем на callback запрос
+            console.log('Отправляю ответ на callback запрос...');
             await ctx.answerCbQuery(`Выбран эффект: ${filterType}`);
+            console.log('✅ Ответ на callback запрос отправлен');
             
             // Проверяем, является ли это inline запросом
             const isInlineQuery = ctx.callbackQuery.inline_message_id !== undefined;
@@ -477,14 +479,27 @@ bot.on('callback_query', async (ctx) => {
             
             if (isInlineQuery) {
                 // Обновляем сообщение в inline режиме
-                await ctx.editMessageText('🎤 Выбран эффект: ' + filterType + '\n\nОтправьте голосовое сообщение для обработки');
+                console.log('Обновляю сообщение в inline режиме...');
+                try {
+                    await ctx.editMessageText('🎤 Выбран эффект: ' + filterType + '\n\nОтправьте голосовое сообщение для обработки');
+                    console.log('✅ Сообщение успешно обновлено');
+                } catch (error) {
+                    console.error('❌ Ошибка при обновлении сообщения:', error);
+                    console.error('Стек ошибки:', error.stack);
+                }
             }
         }
     } catch (error) {
-        console.error('Ошибка при обработке callback запроса:', error);
+        console.error('❌ Ошибка при обработке callback запроса:', error);
         console.error('Стек ошибки:', error.stack);
-        await ctx.answerCbQuery('Произошла ошибка. Пожалуйста, попробуйте еще раз.');
+        try {
+            await ctx.answerCbQuery('Произошла ошибка. Пожалуйста, попробуйте еще раз.');
+            console.log('✅ Ответ об ошибке отправлен');
+        } catch (error) {
+            console.error('❌ Ошибка при отправке ответа об ошибке:', error);
+        }
     }
+    console.log('=== КОНЕЦ ОБРАБОТКИ CALLBACK ЗАПРОСА ===\n');
 });
 
 // Запускаем бота
