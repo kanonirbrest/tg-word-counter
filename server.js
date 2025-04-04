@@ -198,7 +198,7 @@ async function applyAudioFilter(inputFile, filterType) {
                 break;
             case 'high_pitch':
                 // Эффект тонкого голоса - делаем голос выше и тоньше
-                ffmpegCommand += '-af "asetrate=44100*0.2,aresample=44100" ';
+                ffmpegCommand += '-af "asetrate=44100*0.2,aresample=44100,atempo=1.0" ';
                 break;
             default:
                 ffmpegCommand += '-af "volume=1.0" ';
