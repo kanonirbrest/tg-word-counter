@@ -191,7 +191,7 @@ async function applyAudioFilter(inputFile, filterType) {
                 ffmpegCommand += '-af "aecho=0.8:0.8:1000:0.5" ';
                 break;
             case 'autotune':
-                ffmpegCommand += '-af "asetrate=44100*0.5,aresample=44100" ';
+                ffmpegCommand += '-af "asetrate=44100*0.7,aresample=44100" ';
                 break;
             case 'robot':
                 ffmpegCommand += '-af "afftfilt=real=\'hypot(re,im)*sin(0)\':imag=\'hypot(re,im)*cos(0)\':win_size=512:overlap=0.75" ';
