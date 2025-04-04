@@ -303,10 +303,18 @@ function getSession(userId) {
 }
 
 function saveSession(userId, session) {
-    log('Сохранение сессии', { userId, session });
+    log('Сохранение сессии', { 
+        userId, 
+        session,
+        chatId: session.chatId,
+        chatType: session.chatType
+    });
+    
     console.log('=== Сохранение сессии ===');
     console.log('ID пользователя:', userId);
     console.log('Данные сессии:', session);
+    console.log('chatId:', session.chatId);
+    console.log('chatType:', session.chatType);
     
     try {
         let sessions = {};
@@ -316,7 +324,10 @@ function saveSession(userId, session) {
         sessions[userId] = session;
         fs.writeFileSync('sessions.json', JSON.stringify(sessions, null, 2));
         console.log('Сессия успешно сохранена');
-        log('Сессия успешно сохранена');
+        log('Сессия успешно сохранена', { 
+            savedSession: sessions[userId],
+            chatId: sessions[userId].chatId
+        });
     } catch (error) {
         console.error('Ошибка при сохранении сессии:', error);
         console.error('Стек ошибки:', error.stack);
@@ -386,29 +397,36 @@ bot.on('inline_query', async (ctx) => {
         userId: ctx.from.id,
         query: ctx.inlineQuery.query,
         chatType: ctx.inlineQuery.chat_type,
-        chatInstance: ctx.inlineQuery.chat_instance
+        chatInstance: ctx.inlineQuery.chat_instance,
+        fullData: ctx.inlineQuery
     });
     
     const session = getSession(ctx.from.id);
+    log('Текущая сессия до изменений', { 
+        session,
+        chatId: session.chatId
+    });
     
     // Определяем chatId в зависимости от типа чата
     if (ctx.inlineQuery.chat_type === 'private') {
         session.chatId = ctx.from.id;
     } else if (ctx.inlineQuery.chat_type === 'channel') {
-        // Для каналов используем chat_instance как chatId
         session.chatId = ctx.inlineQuery.chat_instance;
     } else {
-        // Для групп и супергрупп также используем chat_instance
         session.chatId = ctx.inlineQuery.chat_instance;
     }
     
     log('Определен chatId для сессии', {
         chatId: session.chatId,
-        chatType: ctx.inlineQuery.chat_type
+        chatType: ctx.inlineQuery.chat_type,
+        chatInstance: ctx.inlineQuery.chat_instance
     });
     
     saveSession(ctx.from.id, session);
-    log('Сохранена сессия для inline запроса', session);
+    log('Сохранена сессия для inline запроса', {
+        session,
+        chatId: session.chatId
+    });
     
     const results = [
         {
