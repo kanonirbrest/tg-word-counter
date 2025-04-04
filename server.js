@@ -343,13 +343,35 @@ bot.catch((err, ctx) => {
 
 // Обработка всех входящих сообщений
 bot.on('message', async (ctx) => {
-    log('Получено новое сообщение', {
+    log('=== Получено новое сообщение ===', {
         userId: ctx.from.id,
         chatId: ctx.chat.id,
         chatType: ctx.chat.type,
         messageType: ctx.message ? Object.keys(ctx.message).filter(key => key !== 'from' && key !== 'chat' && key !== 'date') : 'неизвестно',
-        message: ctx.message
+        message: ctx.message,
+        botInfo: ctx.botInfo,
+        chatMember: ctx.chatMember
     });
+    
+    // Проверяем права бота в чате
+    try {
+        const chatMember = await ctx.telegram.getChatMember(ctx.chat.id, ctx.botInfo.id);
+        log('Права бота в чате', {
+            chatId: ctx.chat.id,
+            chatType: ctx.chat.type,
+            status: chatMember.status,
+            canSendMessages: chatMember.can_send_messages,
+            canSendMediaMessages: chatMember.can_send_media_messages,
+            canSendVoiceMessages: chatMember.can_send_voice_messages
+        });
+    } catch (error) {
+        log('ОШИБКА при проверке прав бота', {
+            error: error.message,
+            stack: error.stack,
+            chatId: ctx.chat.id,
+            chatType: ctx.chat.type
+        });
+    }
     
     if (ctx.message && ctx.message.voice) {
         log('=== Начало обработки голосового сообщения ===', {
@@ -358,7 +380,8 @@ bot.on('message', async (ctx) => {
             chatType: ctx.chat.type,
             messageId: ctx.message.message_id,
             fileId: ctx.message.voice.file_id,
-            duration: ctx.message.voice.duration
+            duration: ctx.message.voice.duration,
+            mimeType: ctx.message.voice.mime_type
         });
         
         try {
