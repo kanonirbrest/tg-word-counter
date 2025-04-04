@@ -510,10 +510,14 @@ bot.on('callback_query', async (ctx) => {
                 // В личной переписке используем ID пользователя
                 session.chatId = ctx.from.id;
                 console.log('Это личная переписка, сохраняю chatId:', session.chatId);
-            } else {
+            } else if (ctx.chat) {
                 // В групповом чате используем ID чата
                 session.chatId = ctx.chat.id;
                 console.log('Это групповой чат, сохраняю chatId:', session.chatId);
+            } else {
+                // В inline режиме используем ID пользователя
+                session.chatId = ctx.from.id;
+                console.log('Это inline режим, сохраняю chatId:', session.chatId);
             }
             
             saveSession(ctx.from.id, session);
