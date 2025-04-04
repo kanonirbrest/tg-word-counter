@@ -197,8 +197,8 @@ async function applyAudioFilter(inputFile, filterType) {
                 ffmpegCommand += '-af "afftfilt=real=\'hypot(re,im)*sin(0)\':imag=\'hypot(re,im)*cos(0)\':win_size=512:overlap=0.75" ';
                 break;
             case 'high_pitch':
-                // Эффект тонкого голоса с более высоким и чистым звучанием
-                ffmpegCommand += '-af "asetrate=44100*0.5,aresample=44100,firequalizer=gain_entry=\'entry(0,-12);entry(250,-6);entry(1000,0);entry(4000,6);entry(8000,12)\'" ';
+                // Эффект тонкого голоса - делаем голос выше и чище
+                ffmpegCommand += '-af "asetrate=44100*0.3,aresample=44100,firequalizer=gain_entry=\'entry(0,-24);entry(250,-12);entry(1000,0);entry(4000,12);entry(8000,24)\'" ';
                 break;
             default:
                 ffmpegCommand += '-af "volume=1.0" ';
