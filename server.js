@@ -352,41 +352,95 @@ bot.on('message', async (ctx) => {
     });
     
     if (ctx.message && ctx.message.voice) {
-        log('Обнаружено голосовое сообщение', {
-            duration: ctx.message.voice.duration,
+        log('=== Начало обработки голосового сообщения ===', {
+            userId: ctx.from.id,
+            chatId: ctx.chat.id,
+            chatType: ctx.chat.type,
+            messageId: ctx.message.message_id,
             fileId: ctx.message.voice.file_id,
-            mimeType: ctx.message.voice.mime_type
+            duration: ctx.message.voice.duration
         });
         
         try {
             const session = getSession(ctx.from.id);
-            log('Получена сессия пользователя', session);
+            log('Проверка сессии', { 
+                session,
+                chatId: session?.chatId,
+                filterType: session?.filterType,
+                chatType: session?.chatType
+            });
             
-            if (!session || !session.filterType) {
-                log('Нет активной сессии или типа фильтра');
-                await ctx.reply('Пожалуйста, сначала выберите эффект через @имя_бота');
+            if (!session?.filterType) {
+                log('ОШИБКА: Тип фильтра не установлен в сессии');
+                await ctx.reply('Пожалуйста, сначала выберите эффект через inline режим.');
                 return;
             }
             
-            const fileName = path.join(tempDir, `${ctx.message.voice.file_id}.ogg`);
-            await downloadFile(ctx.message.voice.file_id, fileName);
+            // Скачиваем файл
+            log('Начало скачивания файла', {
+                fileId: ctx.message.voice.file_id
+            });
             
-            const processedFile = await applyAudioFilter(fileName, session.filterType);
-            log('Обработка файла завершена', { processedFile });
+            const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
+            const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
             
-            const targetChatId = session.chatId || ctx.from.id;
-            log('Отправка обработанного сообщения', { targetChatId });
+            log('Получена информация о файле', {
+                fileUrl,
+                filePath: file.file_path
+            });
             
-            await ctx.telegram.sendVoice(targetChatId, { source: processedFile });
-            log('Сообщение успешно отправлено');
+            const inputPath = await downloadFile(fileUrl);
+            log('Файл успешно скачан', { inputPath });
             
-            fs.unlinkSync(fileName);
-            fs.unlinkSync(processedFile);
+            // Применяем эффект
+            log('Начало применения эффекта', { 
+                filterType: session.filterType,
+                inputPath
+            });
+            
+            const outputPath = await applyAudioFilter(inputPath, session.filterType);
+            log('Эффект успешно применен', { 
+                outputPath,
+                filterType: session.filterType
+            });
+            
+            // Загружаем на Cloudinary
+            log('Начало загрузки на Cloudinary', { outputPath });
+            
+            const result = await cloudinary.uploader.upload(outputPath, {
+                resource_type: 'video',
+                folder: 'audio_effects'
+            });
+            
+            log('Файл успешно загружен на Cloudinary', { 
+                url: result.secure_url
+            });
+            
+            // Отправляем обработанное аудио
+            log('Отправка обработанного аудио', {
+                chatId: ctx.chat.id,
+                chatType: ctx.chat.type,
+                url: result.secure_url
+            });
+            
+            await ctx.replyWithVoice(result.secure_url);
+            log('Обработанное аудио успешно отправлено');
+            
+            // Очищаем временные файлы
+            fs.unlinkSync(inputPath);
+            fs.unlinkSync(outputPath);
             log('Временные файлы удалены');
             
+            log('=== Обработка голосового сообщения завершена успешно ===');
+            
         } catch (error) {
-            log('Ошибка при обработке голосового сообщения', { error: error.message, stack: error.stack });
-            await ctx.reply('Произошла ошибка при обработке голосового сообщения');
+            log('ОШИБКА при обработке голосового сообщения', { 
+                error: error.message, 
+                stack: error.stack,
+                chatId: ctx.chat.id,
+                chatType: ctx.chat.type
+            });
+            await ctx.reply('Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
         }
     }
 });
@@ -566,101 +620,6 @@ bot.on('callback_query', async (ctx) => {
         } catch (error) {
             log('Ошибка при отправке ответа об ошибке', { error: error.message, stack: error.stack });
         }
-    }
-});
-
-// Обработка голосовых сообщений
-bot.on('voice', async (ctx) => {
-    log('=== Начало обработки голосового сообщения ===', {
-        userId: ctx.from.id,
-        chatId: ctx.chat.id,
-        chatType: ctx.chat.type,
-        messageId: ctx.message.message_id,
-        fileId: ctx.message.voice.file_id
-    });
-    
-    try {
-        // Получаем сессию
-        const session = getSession(ctx.from.id);
-        log('Проверка сессии', { 
-            session,
-            chatId: session?.chatId,
-            filterType: session?.filterType,
-            chatType: session?.chatType
-        });
-        
-        // Проверяем наличие типа фильтра
-        if (!session?.filterType) {
-            log('ОШИБКА: Тип фильтра не установлен в сессии');
-            await ctx.reply('Пожалуйста, сначала выберите эффект через inline режим.');
-            return;
-        }
-        
-        // Скачиваем файл
-        log('Начало скачивания файла', {
-            fileId: ctx.message.voice.file_id
-        });
-        
-        const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
-        const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
-        
-        log('Получена информация о файле', {
-            fileUrl,
-            filePath: file.file_path
-        });
-        
-        const inputPath = await downloadFile(fileUrl);
-        log('Файл успешно скачан', { inputPath });
-        
-        // Применяем эффект
-        log('Начало применения эффекта', { 
-            filterType: session.filterType,
-            inputPath
-        });
-        
-        const outputPath = await applyAudioFilter(inputPath, session.filterType);
-        log('Эффект успешно применен', { 
-            outputPath,
-            filterType: session.filterType
-        });
-        
-        // Загружаем на Cloudinary
-        log('Начало загрузки на Cloudinary', { outputPath });
-        
-        const result = await cloudinary.uploader.upload(outputPath, {
-            resource_type: 'video',
-            folder: 'audio_effects'
-        });
-        
-        log('Файл успешно загружен на Cloudinary', { 
-            url: result.secure_url
-        });
-        
-        // Отправляем обработанное аудио
-        log('Отправка обработанного аудио', {
-            chatId: ctx.chat.id,
-            chatType: ctx.chat.type,
-            url: result.secure_url
-        });
-        
-        await ctx.replyWithVoice(result.secure_url);
-        log('Обработанное аудио успешно отправлено');
-        
-        // Очищаем временные файлы
-        fs.unlinkSync(inputPath);
-        fs.unlinkSync(outputPath);
-        log('Временные файлы удалены');
-        
-        log('=== Обработка голосового сообщения завершена успешно ===');
-        
-    } catch (error) {
-        log('ОШИБКА при обработке голосового сообщения', { 
-            error: error.message, 
-            stack: error.stack,
-            chatId: ctx.chat.id,
-            chatType: ctx.chat.type
-        });
-        await ctx.reply('Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
     }
 });
 
