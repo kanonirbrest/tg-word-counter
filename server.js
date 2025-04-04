@@ -227,7 +227,7 @@ async function applyAudioFilter(inputFile, filterType) {
                 break;
             case 'autotune':
                 log('Применение эффекта автотюна');
-                ffmpegCommand += '-af "asetrate=44100*0.7,aresample=44100" ';
+                ffmpegCommand += '-c:a libopus -b:a 48k -af "asetrate=48000*0.7,aresample=48000,volume=1.5" ';
                 break;
             case 'robot':
                 log('Применение эффекта робота');
