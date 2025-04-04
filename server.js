@@ -6,18 +6,40 @@ const axios = require('axios');
 const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
+// Функция для логирования
+function log(message, data = null) {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}`;
+    console.log(logMessage);
+    if (data) {
+        console.log('Данные:', JSON.stringify(data, null, 2));
+    }
+    
+    // Сохраняем логи в файл
+    const logDir = path.join(__dirname, 'logs');
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir);
+    }
+    
+    const logFile = path.join(logDir, `${new Date().toISOString().split('T')[0]}.log`);
+    fs.appendFileSync(logFile, logMessage + '\n');
+    if (data) {
+        fs.appendFileSync(logFile, 'Данные: ' + JSON.stringify(data, null, 2) + '\n');
+    }
+}
+
 // Логирование всех переменных окружения
-console.log('=== Environment Variables ===');
-console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'Установлен' : 'Отсутствует');
-console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME);
-console.log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? 'Установлен' : 'Отсутствует');
-console.log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Отсутствует');
-console.log('=============================');
+log('=== Environment Variables ===');
+log('BOT_TOKEN:', process.env.BOT_TOKEN ? 'Установлен' : 'Отсутствует');
+log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME);
+log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? 'Установлен' : 'Отсутствует');
+log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Отсутствует');
 
 const app = express();
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // Настройка Cloudinary
+log('Настройка Cloudinary...');
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -25,19 +47,20 @@ cloudinary.config({
 });
 
 // Проверка настроек Cloudinary
-console.log('=== Cloudinary Configuration ===');
-console.log('Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME);
-console.log('API Key:', process.env.CLOUDINARY_API_KEY ? 'Установлен' : 'Отсутствует');
-console.log('API Secret:', process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Отсутствует');
-console.log('=============================');
+log('=== Cloudinary Configuration ===');
+log('Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME);
+log('API Key:', process.env.CLOUDINARY_API_KEY ? 'Установлен' : 'Отсутствует');
+log('API Secret:', process.env.CLOUDINARY_API_SECRET ? 'Установлен' : 'Отсутствует');
 
 // Настройка сессий
+log('Настройка сессий...');
 bot.use(session());
 
 // Создаем временную директорию для аудиофайлов, если её нет
 const tempDir = path.join(__dirname, 'temp');
 if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir);
+    log('Создание временной директории...');
+    fs.mkdirSync(tempDir);
 }
 
 // Определение опций для inline запросов
@@ -134,32 +157,43 @@ const inlineQueryOptions = [
 
 // Функция для скачивания файла
 async function downloadFile(fileId, fileName) {
-  try {
-    const file = await bot.telegram.getFile(fileId);
-    const filePath = file.file_path;
-    const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`;
-    
-    const response = await axios({
-      method: 'GET',
-      url: url,
-      responseType: 'stream'
-    });
-    
-    const writer = fs.createWriteStream(fileName);
-    response.data.pipe(writer);
-    
-    return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
-  } catch (error) {
-    console.error('Ошибка при скачивании файла:', error);
-    throw error;
-  }
+    log('Начало скачивания файла', { fileId, fileName });
+    try {
+        const file = await bot.telegram.getFile(fileId);
+        log('Получена информация о файле', file);
+        
+        const filePath = file.file_path;
+        const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`;
+        
+        log('Скачивание файла по URL', { url });
+        const response = await axios({
+            method: 'GET',
+            url: url,
+            responseType: 'stream'
+        });
+        
+        const writer = fs.createWriteStream(fileName);
+        response.data.pipe(writer);
+        
+        return new Promise((resolve, reject) => {
+            writer.on('finish', () => {
+                log('Файл успешно скачан', { fileName, size: fs.statSync(fileName).size });
+                resolve();
+            });
+            writer.on('error', (err) => {
+                log('Ошибка при скачивании файла', { error: err.message });
+                reject(err);
+            });
+        });
+    } catch (error) {
+        log('Ошибка при скачивании файла', { error: error.message, stack: error.stack });
+        throw error;
+    }
 }
 
 // Функция для применения аудиофильтра через FFmpeg
 async function applyAudioFilter(inputFile, filterType) {
+    log('Начало применения аудиофильтра', { inputFile, filterType });
     try {
         console.log('\n=== Начало обработки аудио ===');
         console.log('Входной файл:', inputFile);
@@ -182,6 +216,7 @@ async function applyAudioFilter(inputFile, filterType) {
         
         switch(filterType) {
             case 'distortion':
+                log('Применение эффекта искажения');
                 ffmpegCommand += '-af "acrusher=level_in=8:level_out=18:bits=8:mode=log:aa=1" ';
                 break;
             case 'volume':
@@ -191,13 +226,15 @@ async function applyAudioFilter(inputFile, filterType) {
                 ffmpegCommand += '-af "aecho=0.8:0.8:1000:0.5" ';
                 break;
             case 'autotune':
+                log('Применение эффекта автотюна');
                 ffmpegCommand += '-af "asetrate=44100*0.7,aresample=44100" ';
                 break;
             case 'robot':
+                log('Применение эффекта робота');
                 ffmpegCommand += '-af "afftfilt=real=\'hypot(re,im)*sin(0)\':imag=\'hypot(re,im)*cos(0)\':win_size=512:overlap=0.75" ';
                 break;
             case 'high_pitch':
-                // Эффект тонкого голоса - делаем голос выше и тоньше
+                log('Применение эффекта тонкого голоса');
                 ffmpegCommand += '-af "asetrate=44100*1.5,aresample=44100" ';
                 break;
             default:
@@ -231,6 +268,7 @@ async function applyAudioFilter(inputFile, filterType) {
         const processedStats = fs.statSync(processedFile);
         console.log('Размер обработанного файла:', processedStats.size, 'байт');
         
+        log('Аудиофильтр применен успешно', { processedFile });
         return processedFile;
     } catch (error) {
         console.error('Ошибка при обработке аудио:', error);
@@ -241,25 +279,31 @@ async function applyAudioFilter(inputFile, filterType) {
 
 // Функции для работы с сессиями
 function getSession(userId) {
+    log('Получение сессии', { userId });
     console.log('=== Получение сессии ===');
     console.log('ID пользователя:', userId);
     
     try {
         if (fs.existsSync('sessions.json')) {
             const sessions = JSON.parse(fs.readFileSync('sessions.json', 'utf8'));
-            console.log('Найдена сессия:', sessions[userId] || { filterType: 'volume' });
-            return sessions[userId] || { filterType: 'volume' };
+            const session = sessions[userId] || { filterType: 'volume' };
+            console.log('Найдена сессия:', session);
+            log('Найдена сессия', session);
+            return session;
         }
         console.log('Файл сессий не найден, возвращаю сессию по умолчанию');
+        log('Файл сессий не найден, возвращаю сессию по умолчанию');
         return { filterType: 'volume' };
     } catch (error) {
         console.error('Ошибка при чтении сессии:', error);
         console.error('Стек ошибки:', error.stack);
+        log('Ошибка при чтении сессии', { error: error.message, stack: error.stack });
         return { filterType: 'volume' };
     }
 }
 
 function saveSession(userId, session) {
+    log('Сохранение сессии', { userId, session });
     console.log('=== Сохранение сессии ===');
     console.log('ID пользователя:', userId);
     console.log('Данные сессии:', session);
@@ -272,9 +316,11 @@ function saveSession(userId, session) {
         sessions[userId] = session;
         fs.writeFileSync('sessions.json', JSON.stringify(sessions, null, 2));
         console.log('Сессия успешно сохранена');
+        log('Сессия успешно сохранена');
     } catch (error) {
         console.error('Ошибка при сохранении сессии:', error);
         console.error('Стек ошибки:', error.stack);
+        log('Ошибка при сохранении сессии', { error: error.message, stack: error.stack });
     }
 }
 
@@ -286,138 +332,66 @@ bot.catch((err, ctx) => {
 
 // Обработка всех входящих сообщений
 bot.on('message', async (ctx) => {
-    console.log('\n');
-    console.log('****************************************');
-    console.log('************ НОВОЕ СООБЩЕНИЕ ***********');
-    console.log('****************************************');
-    console.log('Время получения:', new Date().toISOString());
-    console.log('Тип сообщения:', ctx.message ? Object.keys(ctx.message).filter(key => key !== 'from' && key !== 'chat' && key !== 'date') : 'неизвестно');
-    console.log('От пользователя:', ctx.from.id);
-    console.log('В чате:', ctx.chat.id);
-    console.log('Тип чата:', ctx.chat.type);
-    console.log('Контекст чата:', ctx.chat.type === 'private' ? 'личные сообщения' : 'групповой чат');
+    log('Получено новое сообщение', {
+        userId: ctx.from.id,
+        chatId: ctx.chat.id,
+        chatType: ctx.chat.type,
+        messageType: ctx.message ? Object.keys(ctx.message).filter(key => key !== 'from' && key !== 'chat' && key !== 'date') : 'неизвестно',
+        message: ctx.message
+    });
     
-    // Выводим полное содержимое сообщения для отладки
-    console.log('Полное содержимое сообщения:', JSON.stringify(ctx.message, null, 2));
-    
-    // Проверяем наличие голосового сообщения
     if (ctx.message && ctx.message.voice) {
-        console.log('\n!!! ОБНАРУЖЕНО ГОЛОСОВОЕ СООБЩЕНИЕ !!!');
-        console.log('----------------------------------------');
-        console.log('Длина сообщения:', ctx.message.voice.duration, 'секунд');
-        console.log('File ID:', ctx.message.voice.file_id);
-        console.log('MIME тип:', ctx.message.voice.mime_type);
-        console.log('Полные данные голосового сообщения:', JSON.stringify(ctx.message.voice, null, 2));
+        log('Обнаружено голосовое сообщение', {
+            duration: ctx.message.voice.duration,
+            fileId: ctx.message.voice.file_id,
+            mimeType: ctx.message.voice.mime_type
+        });
         
         try {
-            // Получаем информацию о сессии
-            console.log('\n=== Проверка сессии ===');
             const session = getSession(ctx.from.id);
-            console.log('Текущая сессия:', session);
+            log('Получена сессия пользователя', session);
             
             if (!session || !session.filterType) {
-                console.log('❌ Нет активной сессии или типа фильтра');
+                log('Нет активной сессии или типа фильтра');
                 await ctx.reply('Пожалуйста, сначала выберите эффект через @имя_бота');
                 return;
             }
             
-            // Скачиваем голосовое сообщение
-            console.log('\n=== Начало обработки голосового сообщения ===');
-            console.log('Получаю информацию о файле...');
-            
-            // Получаем информацию о файле
-            const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
-            console.log('Информация о файле:', JSON.stringify(file, null, 2));
-            
-            const filePath = file.file_path;
             const fileName = path.join(tempDir, `${ctx.message.voice.file_id}.ogg`);
+            await downloadFile(ctx.message.voice.file_id, fileName);
             
-            console.log('Путь к файлу:', filePath);
-            console.log('Сохраняю в:', fileName);
-            
-            // Скачиваем файл
-            console.log('Скачиваю файл...');
-            const response = await axios({
-                method: 'GET',
-                url: `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`,
-                responseType: 'stream'
-            });
-            
-            console.log('Файл успешно скачан, размер:', response.headers['content-length'], 'байт');
-            
-            const writer = fs.createWriteStream(fileName);
-            response.data.pipe(writer);
-            
-            await new Promise((resolve, reject) => {
-                writer.on('finish', () => {
-                    console.log('✅ Файл успешно сохранен на диск');
-                    const stats = fs.statSync(fileName);
-                    console.log('Размер сохраненного файла:', stats.size, 'байт');
-                    resolve();
-                });
-                writer.on('error', (err) => {
-                    console.error('❌ Ошибка при сохранении файла:', err);
-                    reject(err);
-                });
-            });
-            
-            // Применяем фильтр
-            console.log('\n=== Применение фильтра ===');
-            console.log('Тип фильтра:', session.filterType);
-            console.log('Начинаю обработку файла...');
             const processedFile = await applyAudioFilter(fileName, session.filterType);
-            console.log('✅ Файл обработан:', processedFile);
+            log('Обработка файла завершена', { processedFile });
             
-            // Отправляем обработанное сообщение
-            console.log('\n=== Отправка обработанного сообщения ===');
-            console.log('Отправляю обработанное голосовое сообщение...');
-            
-            // Определяем, куда отправлять сообщение
             const targetChatId = session.chatId || ctx.from.id;
-            console.log('Отправка в чат:', targetChatId);
-            console.log('Тип чата:', ctx.chat.type);
+            log('Отправка обработанного сообщения', { targetChatId });
             
             await ctx.telegram.sendVoice(targetChatId, { source: processedFile });
-            console.log('✅ Сообщение отправлено в чат:', targetChatId);
+            log('Сообщение успешно отправлено');
             
-            // Очищаем временные файлы
-            console.log('\n=== Очистка временных файлов ===');
-            console.log('Удаляю временные файлы...');
             fs.unlinkSync(fileName);
             fs.unlinkSync(processedFile);
-            console.log('✅ Временные файлы удалены');
+            log('Временные файлы удалены');
             
         } catch (error) {
-            console.error('\n❌❌❌ ОШИБКА ПРИ ОБРАБОТКЕ ГОЛОСОВОГО СООБЩЕНИЯ ❌❌❌');
-            console.error('Описание ошибки:', error.message);
-            console.error('Стек ошибки:', error.stack);
-            try {
-                await ctx.reply('Произошла ошибка при обработке голосового сообщения');
-                console.log('✅ Сообщение об ошибке отправлено');
-            } catch (error) {
-                console.error('❌ Ошибка при отправке сообщения об ошибке:', error);
-            }
+            log('Ошибка при обработке голосового сообщения', { error: error.message, stack: error.stack });
+            await ctx.reply('Произошла ошибка при обработке голосового сообщения');
         }
-    } else {
-        console.log('Сообщение не содержит голосового сообщения');
-        console.log('Типы сообщения:', Object.keys(ctx.message || {}));
     }
-    
-    console.log('\n****************************************');
-    console.log('********** КОНЕЦ ОБРАБОТКИ *************');
-    console.log('****************************************\n');
 });
 
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
-    console.log('\n=== INLINE QUERY START ===');
-    console.log('Получен inline запрос от пользователя:', ctx.from.id);
-    console.log('Данные запроса:', JSON.stringify(ctx.inlineQuery, null, 2));
+    log('Получен inline запрос', {
+        userId: ctx.from.id,
+        query: ctx.inlineQuery.query,
+        chatType: ctx.inlineQuery.chat_type
+    });
     
-    // Сохраняем chatId в сессии
     const session = getSession(ctx.from.id);
     session.chatId = ctx.inlineQuery.chat_type === 'private' ? ctx.from.id : ctx.inlineQuery.chat_instance;
     saveSession(ctx.from.id, session);
+    log('Сохранена сессия для inline запроса', session);
     
     const results = [
         {
@@ -482,81 +456,66 @@ bot.on('inline_query', async (ctx) => {
         }
     ];
     
-    console.log('Подготовлено результатов:', results.length);
-    console.log('Отправляю результаты inline запроса...');
+    log('Отправка результатов inline запроса', { resultsCount: results.length });
     try {
         await ctx.answerInlineQuery(results, {
             cache_time: 0,
             is_personal: true
         });
-        console.log('✅ Результаты успешно отправлены');
+        log('Результаты inline запроса успешно отправлены');
     } catch (error) {
-        console.error('❌ Ошибка при отправке результатов:', error);
-        console.error('Стек ошибки:', error.stack);
+        log('Ошибка при отправке результатов inline запроса', { error: error.message, stack: error.stack });
     }
-    console.log('=== INLINE QUERY END ===\n');
 });
 
 // Обработка callback запросов
 bot.on('callback_query', async (ctx) => {
-    console.log('\n=== Начало обработки callback запроса ===');
-    console.log('Callback данные:', JSON.stringify(ctx.callbackQuery, null, 2));
-    console.log('От пользователя ID:', ctx.from.id);
-    console.log('Имя пользователя:', ctx.from.username);
+    log('Получен callback запрос', {
+        userId: ctx.from.id,
+        data: ctx.callbackQuery.data,
+        chatType: ctx.callbackQuery.chat_type
+    });
     
     try {
         const data = ctx.callbackQuery.data;
-        console.log('Получен callback запрос:', data);
         
         if (data.startsWith('record_')) {
             const filterType = data.replace('record_', '');
-            console.log('Устанавливаю тип фильтра в сессию:', filterType);
+            log('Установка типа фильтра', { filterType });
             
-            // Сохраняем тип фильтра в сессии
             const session = getSession(ctx.from.id);
-            console.log('Текущая сессия до изменения:', session);
             session.filterType = filterType;
             
-            // Сохраняем chatId из сессии, если он есть
             if (!session.chatId) {
                 session.chatId = ctx.from.id;
             }
             
             saveSession(ctx.from.id, session);
-            console.log('Сессия после установки:', session);
+            log('Сохранена сессия с новым типом фильтра', session);
             
-            // Отвечаем на callback запрос
-            console.log('Отправляю ответ на callback запрос...');
             await ctx.answerCbQuery(`Готов к обработке голосового сообщения с эффектом: ${filterType}`);
-            console.log('✅ Ответ на callback запрос отправлен');
+            log('Отправлен ответ на callback запрос');
             
-            // Проверяем, является ли это inline запросом
             const isInlineQuery = ctx.callbackQuery.inline_message_id !== undefined;
-            console.log('Это inline запрос:', isInlineQuery);
-            
             if (isInlineQuery) {
-                // Обновляем сообщение в inline режиме
-                console.log('Обновляю сообщение в inline режиме...');
+                log('Обновление сообщения в inline режиме');
                 try {
                     await ctx.editMessageText('🎤 Выбран эффект: ' + filterType + '\n\nОтправьте голосовое сообщение для обработки');
-                    console.log('✅ Сообщение успешно обновлено');
+                    log('Сообщение в inline режиме успешно обновлено');
                 } catch (error) {
-                    console.error('❌ Ошибка при обновлении сообщения:', error);
-                    console.error('Стек ошибки:', error.stack);
+                    log('Ошибка при обновлении сообщения в inline режиме', { error: error.message, stack: error.stack });
                 }
             }
         }
     } catch (error) {
-        console.error('❌ Ошибка при обработке callback запроса:', error);
-        console.error('Стек ошибки:', error.stack);
+        log('Ошибка при обработке callback запроса', { error: error.message, stack: error.stack });
         try {
             await ctx.answerCbQuery('Произошла ошибка. Пожалуйста, попробуйте еще раз.');
-            console.log('✅ Ответ об ошибке отправлен');
+            log('Отправлен ответ об ошибке');
         } catch (error) {
-            console.error('❌ Ошибка при отправке ответа об ошибке:', error);
+            log('Ошибка при отправке ответа об ошибке', { error: error.message, stack: error.stack });
         }
     }
-    console.log('=== КОНЕЦ ОБРАБОТКИ CALLBACK ЗАПРОСА ===\n');
 });
 
 // Запускаем бота
