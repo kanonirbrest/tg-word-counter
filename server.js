@@ -504,6 +504,7 @@ bot.on('callback_query', async (ctx) => {
             const session = getSession(ctx.from.id);
             console.log('Текущая сессия до изменения:', session);
             session.filterType = filterType;
+            session.chatId = ctx.from.id; // Добавляем chatId сразу при первом сохранении
             saveSession(ctx.from.id, session);
             console.log('Сессия после установки:', session);
             
