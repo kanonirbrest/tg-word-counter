@@ -321,7 +321,7 @@ bot.on('message', async (ctx) => {
             
             if (!session || !session.filterType) {
                 console.log('❌ Нет активной сессии или типа фильтра');
-                await ctx.reply('Пожалуйста, сначала выберите эффект');
+                await ctx.reply('Пожалуйста, сначала выберите эффект через @имя_бота');
                 return;
             }
             
@@ -400,8 +400,7 @@ bot.on('message', async (ctx) => {
 // Обработка inline запросов
 bot.on('inline_query', async (ctx) => {
     console.log('\n=== INLINE QUERY START ===');
-    console.log('Получен inline запрос:', ctx.inlineQuery.query);
-    console.log('От пользователя:', ctx.from.id);
+    console.log('Получен inline запрос от пользователя:', ctx.from.id);
     
     const results = [
         {
@@ -410,7 +409,7 @@ bot.on('inline_query', async (ctx) => {
             title: 'Грубый голос',
             description: 'Сделать голос более грубым',
             input_message_content: {
-                message_text: 'Выбран эффект: Грубый голос'
+                message_text: '🎤 Выбран эффект: Грубый голос\n\nОтправьте голосовое сообщение для обработки'
             },
             reply_markup: {
                 inline_keyboard: [[{ text: 'Выбрать', callback_data: 'record_distortion' }]]
@@ -422,7 +421,7 @@ bot.on('inline_query', async (ctx) => {
             title: 'Тихий голос',
             description: 'Сделать голос тише',
             input_message_content: {
-                message_text: 'Выбран эффект: Тихий голос'
+                message_text: '🎤 Выбран эффект: Тихий голос\n\nОтправьте голосовое сообщение для обработки'
             },
             reply_markup: {
                 inline_keyboard: [[{ text: 'Выбрать', callback_data: 'record_volume' }]]
@@ -434,7 +433,7 @@ bot.on('inline_query', async (ctx) => {
             title: 'Эхо',
             description: 'Добавить эхо к голосу',
             input_message_content: {
-                message_text: 'Выбран эффект: Эхо'
+                message_text: '🎤 Выбран эффект: Эхо\n\nОтправьте голосовое сообщение для обработки'
             },
             reply_markup: {
                 inline_keyboard: [[{ text: 'Выбрать', callback_data: 'record_echo' }]]
@@ -446,62 +445,6 @@ bot.on('inline_query', async (ctx) => {
     await ctx.answerInlineQuery(results);
     console.log('Отправляю результаты inline запроса');
     console.log('=== INLINE QUERY END ===\n');
-});
-
-// Обработка команды /start
-bot.command('start', async (ctx) => {
-    console.log('Получена команда /start');
-    const session = getSession(ctx.from.id);
-    session.filterType = null;
-    saveSession(ctx.from.id, session);
-    await ctx.reply('Выберите эффект для обработки голосового сообщения:', {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: 'Грубый голос', callback_data: 'record_distortion' }],
-                [{ text: 'Тихий голос', callback_data: 'record_volume' }],
-                [{ text: 'Эхо', callback_data: 'record_echo' }]
-            ]
-        }
-    });
-});
-
-// Обработка команды /help
-bot.command('help', async (ctx) => {
-  const keyboard = {
-    inline_keyboard: [
-      [
-        { text: '🎵 Усилить бас', callback_data: 'record_bass' },
-        { text: '🎵 Усилить высокие частоты', callback_data: 'record_treble' }
-      ],
-      [
-        { text: '🎵 Добавить эхо', callback_data: 'record_echo' },
-        { text: '🎵 Добавить реверберацию', callback_data: 'record_reverb' }
-      ],
-      [
-        { text: '🎵 Ускорить воспроизведение', callback_data: 'record_speed' },
-        { text: '🎵 Усилить громкость', callback_data: 'record_volume' }
-      ],
-      [
-        { text: '🎵 Грубый голос', callback_data: 'record_distortion' }
-      ]
-    ]
-  };
-  
-  await ctx.reply(
-    'Как использовать бота:\n\n' +
-    '1. В любом чате напишите @имя_бота\n' +
-    '2. Выберите тип фильтра:\n' +
-    '   - Усилить бас\n' +
-    '   - Усилить высокие частоты\n' +
-    '   - Добавить эхо\n' +
-    '   - Добавить реверберацию\n' +
-    '   - Ускорить воспроизведение\n' +
-    '   - Усилить громкость\n' +
-    '   - Добавить эффект искажения\n' +
-    '3. Отправьте голосовое сообщение\n\n' +
-    'Или выберите эффект ниже:',
-    { reply_markup: keyboard }
-  );
 });
 
 // Обработка callback запросов
@@ -532,13 +475,9 @@ bot.on('callback_query', async (ctx) => {
             const isInlineQuery = ctx.callbackQuery.inline_message_id !== undefined;
             console.log('Это inline запрос:', isInlineQuery);
             
-            // Отправляем сообщение только если это НЕ inline запрос
-            if (!isInlineQuery) {
-                console.log('Это обычный запрос, отправляю сообщение в текущий чат');
-                const message = await ctx.reply('🎤 Пожалуйста, отправьте голосовое сообщение для обработки');
-                console.log('Сообщение успешно отправлено:', message);
-            } else {
-                console.log('Это inline запрос, не отправляю дополнительных сообщений');
+            if (isInlineQuery) {
+                // Обновляем сообщение в inline режиме
+                await ctx.editMessageText('🎤 Выбран эффект: ' + filterType + '\n\nОтправьте голосовое сообщение для обработки');
             }
         }
     } catch (error) {
