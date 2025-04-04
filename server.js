@@ -288,6 +288,7 @@ bot.on('message', async (ctx) => {
     console.log('От пользователя:', ctx.from.id);
     console.log('В чате:', ctx.chat.id);
     console.log('Тип чата:', ctx.chat.type);
+    console.log('Контекст чата:', ctx.chat.type === 'private' ? 'личные сообщения' : 'групповой чат');
     
     // Выводим полное содержимое сообщения для отладки
     console.log('Полное содержимое сообщения:', JSON.stringify(ctx.message, null, 2));
@@ -364,12 +365,13 @@ bot.on('message', async (ctx) => {
             console.log('\n=== Отправка обработанного сообщения ===');
             console.log('Отправляю обработанное голосовое сообщение...');
             
-            // Получаем информацию о сессии
-            const userSession = getSession(ctx.from.id);
-            const chatId = userSession.chatId || ctx.chat.id; // Используем сохраненный chatId или текущий
+            // Определяем, куда отправлять сообщение
+            const targetChatId = session.chatId || ctx.chat.id;
+            console.log('Отправка в чат:', targetChatId);
+            console.log('Тип чата:', ctx.chat.type);
             
-            await ctx.telegram.sendVoice(chatId, { source: processedFile });
-            console.log('✅ Сообщение отправлено в чат:', chatId);
+            await ctx.telegram.sendVoice(targetChatId, { source: processedFile });
+            console.log('✅ Сообщение отправлено в чат:', targetChatId);
             
             // Очищаем временные файлы
             console.log('\n=== Очистка временных файлов ===');
