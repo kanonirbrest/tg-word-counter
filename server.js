@@ -196,6 +196,10 @@ async function applyAudioFilter(inputFile, filterType) {
             case 'robot':
                 ffmpegCommand += '-af "afftfilt=real=\'hypot(re,im)*sin(0)\':imag=\'hypot(re,im)*cos(0)\':win_size=512:overlap=0.75" ';
                 break;
+            case 'high_pitch':
+                // Эффект тонкого голоса с более высоким тоном
+                ffmpegCommand += '-af "asetrate=44100*0.6,aresample=44100,atempo=1.2" ';
+                break;
             default:
                 ffmpegCommand += '-af "volume=1.0" ';
         }
@@ -428,36 +432,6 @@ bot.on('inline_query', async (ctx) => {
         },
         {
             type: 'article',
-            id: 'volume',
-            title: 'Тихий голос',
-            description: 'Сделать голос тише',
-            input_message_content: {
-                message_text: '🎤 Выбран эффект: Тихий голос\n\nОтправьте голосовое сообщение для обработки'
-            },
-            reply_markup: {
-                inline_keyboard: [[{ 
-                    text: '🎤 Отправить голосовое', 
-                    callback_data: 'record_volume'
-                }]]
-            }
-        },
-        {
-            type: 'article',
-            id: 'echo',
-            title: 'Эхо',
-            description: 'Добавить эхо к голосу',
-            input_message_content: {
-                message_text: '🎤 Выбран эффект: Эхо\n\nОтправьте голосовое сообщение для обработки'
-            },
-            reply_markup: {
-                inline_keyboard: [[{ 
-                    text: '🎤 Отправить голосовое', 
-                    callback_data: 'record_echo'
-                }]]
-            }
-        },
-        {
-            type: 'article',
             id: 'autotune',
             title: 'Автотюн',
             description: 'Добавить эффект автотюна к голосу',
@@ -483,6 +457,21 @@ bot.on('inline_query', async (ctx) => {
                 inline_keyboard: [[{ 
                     text: '🎤 Отправить голосовое', 
                     callback_data: 'record_robot'
+                }]]
+            }
+        },
+        {
+            type: 'article',
+            id: 'high_pitch',
+            title: '🎵 Тонкий голос',
+            description: 'Сделать голос более тонким',
+            input_message_content: {
+                message_text: '🎤 Выбран эффект: Тонкий голос\n\nОтправьте голосовое сообщение для обработки'
+            },
+            reply_markup: {
+                inline_keyboard: [[{ 
+                    text: '🎤 Отправить голосовое', 
+                    callback_data: 'record_high_pitch'
                 }]]
             }
         }
