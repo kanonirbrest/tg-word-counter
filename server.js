@@ -167,7 +167,8 @@ async function applyAudioFilter(inputFile, filterType) {
         console.log('Загружаю файл в Cloudinary...');
         const uploadResult = await cloudinary.uploader.upload(inputFile, {
             resource_type: 'video',
-            format: 'wav'
+            format: 'wav',
+            audio_codec: 'pcm'
         });
         console.log('Файл загружен в Cloudinary:', uploadResult.public_id);
         
@@ -177,7 +178,7 @@ async function applyAudioFilter(inputFile, filterType) {
 
         switch(filterType) {
             case 'distortion':
-                audioEffects = ['distortion:100'];
+                audioEffects = ['distortion:100', 'volume:2.0'];
                 break;
             case 'volume':
                 audioEffects = ['volume:0.1'];
@@ -194,6 +195,7 @@ async function applyAudioFilter(inputFile, filterType) {
         const result = await cloudinary.url(uploadResult.public_id, {
             resource_type: 'video',
             format: 'wav',
+            audio_codec: 'pcm',
             audio_effects: audioEffects
         });
         
