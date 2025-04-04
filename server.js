@@ -167,8 +167,8 @@ async function applyAudioFilter(inputFile, filterType) {
         console.log('Загружаю файл в Cloudinary...');
         const uploadResult = await cloudinary.uploader.upload(inputFile, {
             resource_type: 'video',
-            format: 'ogg',
-            audio_codec: 'libvorbis'
+            format: 'mp3',
+            audio_codec: 'aac'
         });
         console.log('Файл загружен в Cloudinary:', uploadResult.public_id);
         
