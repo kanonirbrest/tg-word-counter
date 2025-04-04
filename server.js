@@ -504,7 +504,7 @@ bot.on('callback_query', async (ctx) => {
             const session = getSession(ctx.from.id);
             console.log('Текущая сессия до изменения:', session);
             session.filterType = filterType;
-            session.chatId = ctx.chat ? ctx.chat.id : ctx.from.id; // Используем ctx.chat.id если доступен, иначе ctx.from.id
+            session.chatId = ctx.callbackQuery.chat_type === 'private' ? ctx.from.id : (ctx.chat ? ctx.chat.id : ctx.from.id); // Используем ctx.from.id для личной переписки
             saveSession(ctx.from.id, session);
             console.log('Сессия после установки:', session);
             
