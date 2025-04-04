@@ -571,11 +571,12 @@ bot.on('callback_query', async (ctx) => {
 
 // Обработка голосовых сообщений
 bot.on('voice', async (ctx) => {
-    log('Получено голосовое сообщение', {
+    log('=== Начало обработки голосового сообщения ===', {
         userId: ctx.from.id,
         chatId: ctx.chat.id,
         chatType: ctx.chat.type,
-        messageId: ctx.message.message_id
+        messageId: ctx.message.message_id,
+        fileId: ctx.message.voice.file_id
     });
     
     try {
@@ -583,22 +584,27 @@ bot.on('voice', async (ctx) => {
         const session = getSession(ctx.from.id);
         log('Проверка сессии', { 
             session,
-            chatId: session.chatId,
-            filterType: session.filterType
+            chatId: session?.chatId,
+            filterType: session?.filterType,
+            chatType: session?.chatType
         });
         
         // Проверяем наличие типа фильтра
-        if (!session.filterType) {
-            log('Тип фильтра не установлен в сессии');
+        if (!session?.filterType) {
+            log('ОШИБКА: Тип фильтра не установлен в сессии');
             await ctx.reply('Пожалуйста, сначала выберите эффект через inline режим.');
             return;
         }
         
         // Скачиваем файл
+        log('Начало скачивания файла', {
+            fileId: ctx.message.voice.file_id
+        });
+        
         const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
         const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
         
-        log('Начало скачивания файла', {
+        log('Получена информация о файле', {
             fileUrl,
             filePath: file.file_path
         });
@@ -633,7 +639,8 @@ bot.on('voice', async (ctx) => {
         // Отправляем обработанное аудио
         log('Отправка обработанного аудио', {
             chatId: ctx.chat.id,
-            chatType: ctx.chat.type
+            chatType: ctx.chat.type,
+            url: result.secure_url
         });
         
         await ctx.replyWithVoice(result.secure_url);
@@ -644,8 +651,10 @@ bot.on('voice', async (ctx) => {
         fs.unlinkSync(outputPath);
         log('Временные файлы удалены');
         
+        log('=== Обработка голосового сообщения завершена успешно ===');
+        
     } catch (error) {
-        log('Ошибка при обработке голосового сообщения', { 
+        log('ОШИБКА при обработке голосового сообщения', { 
             error: error.message, 
             stack: error.stack,
             chatId: ctx.chat.id,
