@@ -1,13 +1,13 @@
 FROM node:18
 
-# Установка ffmpeg
-RUN apt-get update && apt-get install -y ffmpeg
-
 WORKDIR /app
 
 COPY package*.json ./
+
+RUN apt-get update && apt-get install -y ffmpeg
+
 RUN npm install
 
 COPY . .
 
-CMD ["npm", "start"] 
+CMD ["node", "server.js"] 

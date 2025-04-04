@@ -158,7 +158,7 @@ async function downloadFile(fileId, fileName) {
   }
 }
 
-// Функция для применения аудиофильтра через Cloudinary
+// Функция для применения аудиофильтра через FFmpeg
 async function applyAudioFilter(inputFile, filterType) {
     try {
         console.log('\n=== Начало обработки аудио ===');
@@ -174,83 +174,57 @@ async function applyAudioFilter(inputFile, filterType) {
         const stats = fs.statSync(inputFile);
         console.log('Размер входного файла:', stats.size, 'байт');
         
-        // Загружаем файл в Cloudinary
-        console.log('Загружаю файл в Cloudinary...');
-        const uploadResult = await cloudinary.uploader.upload(inputFile, {
-            resource_type: 'video',
-            format: 'wav',
-            audio_codec: 'pcm'
-        });
-        console.log('Файл загружен в Cloudinary:', uploadResult.public_id);
+        // Создаем временный файл для обработанного аудио
+        const processedFile = path.join(tempDir, `processed_${path.basename(inputFile)}`);
         
-        // Применяем фильтр в зависимости от типа
-        console.log('Применяю фильтр в Cloudinary...');
-        let audioEffects = [];
-
+        // Применяем эффекты через FFmpeg
+        let ffmpegCommand = 'ffmpeg -i ' + inputFile + ' ';
+        
         switch(filterType) {
             case 'distortion':
-                audioEffects = ['distortion:100', 'volume:2.0'];
+                ffmpegCommand += '-af "acrusher=level_in=8:level_out=18:bits=8:mode=log:aa=1" ';
                 break;
             case 'volume':
-                audioEffects = ['volume:0.1'];
+                ffmpegCommand += '-af "volume=0.1" ';
                 break;
             case 'echo':
-                audioEffects = ['echo:1.0:1.0:1.0'];
+                ffmpegCommand += '-af "aecho=0.8:0.8:1000:0.5" ';
                 break;
             case 'autotune':
-                audioEffects = ['pitch:0.5', 'volume:1.5'];
+                ffmpegCommand += '-af "asetrate=44100*0.5,aresample=44100" ';
                 break;
             default:
-                audioEffects = ['volume:1.0'];
-        }
-
-        console.log('Применяемые эффекты:', audioEffects);
-        
-        const result = await cloudinary.url(uploadResult.public_id, {
-            resource_type: 'video',
-            format: 'wav',
-            audio_codec: 'pcm',
-            audio_effects: audioEffects
-        });
-        
-        console.log('Фильтр применен, URL результата:', result);
-        
-        // Проверяем, что URL корректный
-        if (!result || !result.startsWith('http')) {
-            throw new Error('Получен некорректный URL от Cloudinary');
+                ffmpegCommand += '-af "volume=1.0" ';
         }
         
-        // Скачиваем обработанный файл
-        console.log('Скачиваю обработанный файл...');
-        const response = await axios({
-            method: 'GET',
-            url: result,
-            responseType: 'stream',
-            maxRedirects: 5,
-            validateStatus: function (status) {
-                return status >= 200 && status < 300;
-            }
-        });
+        ffmpegCommand += processedFile;
         
-        const outputFile = path.join(tempDir, `processed_${path.basename(inputFile)}`);
-        console.log('Сохраняю в файл:', outputFile);
+        console.log('Выполняю команду FFmpeg:', ffmpegCommand);
         
-        const writer = fs.createWriteStream(outputFile);
-        response.data.pipe(writer);
-        
-        return new Promise((resolve, reject) => {
-            writer.on('finish', () => {
-                console.log('Файл успешно сохранен:', outputFile);
-                // Проверяем размер выходного файла
-                const outputStats = fs.statSync(outputFile);
-                console.log('Размер выходного файла:', outputStats.size, 'байт');
-                resolve(outputFile);
-            });
-            writer.on('error', (err) => {
-                console.error('Ошибка при сохранении файла:', err);
-                reject(err);
+        // Запускаем FFmpeg
+        const { exec } = require('child_process');
+        await new Promise((resolve, reject) => {
+            exec(ffmpegCommand, (error, stdout, stderr) => {
+                if (error) {
+                    console.error('Ошибка FFmpeg:', error);
+                    reject(error);
+                    return;
+                }
+                console.log('FFmpeg stdout:', stdout);
+                console.log('FFmpeg stderr:', stderr);
+                resolve();
             });
         });
+        
+        // Проверяем, что файл создан
+        if (!fs.existsSync(processedFile)) {
+            throw new Error('Обработанный файл не создан');
+        }
+        
+        const processedStats = fs.statSync(processedFile);
+        console.log('Размер обработанного файла:', processedStats.size, 'байт');
+        
+        return processedFile;
     } catch (error) {
         console.error('Ошибка при обработке аудио:', error);
         console.error('Стек ошибки:', error.stack);
