@@ -504,7 +504,7 @@ bot.on('callback_query', async (ctx) => {
             const session = getSession(ctx.from.id);
             console.log('Текущая сессия до изменения:', session);
             session.filterType = filterType;
-            session.chatId = ctx.from.id; // Добавляем chatId сразу при первом сохранении
+            session.chatId = ctx.chat ? ctx.chat.id : ctx.from.id; // Используем ctx.chat.id если доступен, иначе ctx.from.id
             saveSession(ctx.from.id, session);
             console.log('Сессия после установки:', session);
             
@@ -523,11 +523,6 @@ bot.on('callback_query', async (ctx) => {
                 try {
                     await ctx.editMessageText('🎤 Выбран эффект: ' + filterType + '\n\nОтправьте голосовое сообщение для обработки');
                     console.log('✅ Сообщение успешно обновлено');
-                    
-                    // Сохраняем информацию о чате в сессии
-                    const userSession = getSession(ctx.from.id);
-                    userSession.chatId = ctx.from.id; // Используем ID пользователя для личных сообщений
-                    saveSession(ctx.from.id, userSession);
                     
                     // Отправляем сообщение пользователю в личные сообщения
                     console.log('Отправляю сообщение пользователю в личные сообщения...');
