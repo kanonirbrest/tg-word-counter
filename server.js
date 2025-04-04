@@ -523,7 +523,7 @@ bot.on('callback_query', async (ctx) => {
                     
                     // Сохраняем информацию о чате в сессии
                     const userSession = getSession(ctx.from.id);
-                    userSession.chatId = ctx.chat.id; // Используем ctx.chat.id вместо ctx.from.id
+                    userSession.chatId = ctx.from.id; // Используем ID пользователя для личных сообщений
                     saveSession(ctx.from.id, userSession);
                     
                     // Отправляем сообщение пользователю в личные сообщения
