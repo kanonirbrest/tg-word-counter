@@ -414,6 +414,11 @@ bot.on('inline_query', async (ctx) => {
     console.log('Получен inline запрос от пользователя:', ctx.from.id);
     console.log('Данные запроса:', JSON.stringify(ctx.inlineQuery, null, 2));
     
+    // Сохраняем chatId в сессии
+    const session = getSession(ctx.from.id);
+    session.chatId = ctx.inlineQuery.chat_type === 'private' ? ctx.from.id : ctx.inlineQuery.chat_instance;
+    saveSession(ctx.from.id, session);
+    
     const results = [
         {
             type: 'article',
@@ -512,19 +517,9 @@ bot.on('callback_query', async (ctx) => {
             console.log('Текущая сессия до изменения:', session);
             session.filterType = filterType;
             
-            // Определяем тип чата и сохраняем соответствующий chatId
-            if (ctx.callbackQuery.chat_type === 'private') {
-                // В личной переписке используем ID пользователя
+            // Сохраняем chatId из сессии, если он есть
+            if (!session.chatId) {
                 session.chatId = ctx.from.id;
-                console.log('Это личная переписка, сохраняю chatId:', session.chatId);
-            } else if (ctx.chat) {
-                // В групповом чате используем ID чата
-                session.chatId = ctx.chat.id;
-                console.log('Это групповой чат, сохраняю chatId:', session.chatId);
-            } else {
-                // В inline режиме используем ID пользователя
-                session.chatId = ctx.from.id;
-                console.log('Это inline режим, сохраняю chatId:', session.chatId);
             }
             
             saveSession(ctx.from.id, session);
@@ -545,18 +540,6 @@ bot.on('callback_query', async (ctx) => {
                 try {
                     await ctx.editMessageText('🎤 Выбран эффект: ' + filterType + '\n\nОтправьте голосовое сообщение для обработки');
                     console.log('✅ Сообщение успешно обновлено');
-                    
-                    // Отправляем сообщение пользователю в личные сообщения только если это не личная переписка
-                    if (ctx.callbackQuery.chat_type !== 'private') {
-                        console.log('Отправляю сообщение пользователю в личные сообщения...');
-                        try {
-                            await ctx.telegram.sendMessage(ctx.from.id, '🎤 Выбран эффект: ' + filterType + '\n\nОтправьте голосовое сообщение для обработки');
-                            console.log('✅ Сообщение отправлено в личные сообщения');
-                        } catch (error) {
-                            console.error('❌ Ошибка при отправке сообщения в личные сообщения:', error);
-                            console.error('Стек ошибки:', error.stack);
-                        }
-                    }
                 } catch (error) {
                     console.error('❌ Ошибка при обновлении сообщения:', error);
                     console.error('Стек ошибки:', error.stack);
