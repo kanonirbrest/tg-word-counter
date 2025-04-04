@@ -385,11 +385,28 @@ bot.on('inline_query', async (ctx) => {
     log('Получен inline запрос', {
         userId: ctx.from.id,
         query: ctx.inlineQuery.query,
-        chatType: ctx.inlineQuery.chat_type
+        chatType: ctx.inlineQuery.chat_type,
+        chatInstance: ctx.inlineQuery.chat_instance
     });
     
     const session = getSession(ctx.from.id);
-    session.chatId = ctx.inlineQuery.chat_type === 'private' ? ctx.from.id : ctx.inlineQuery.chat_instance;
+    
+    // Определяем chatId в зависимости от типа чата
+    if (ctx.inlineQuery.chat_type === 'private') {
+        session.chatId = ctx.from.id;
+    } else if (ctx.inlineQuery.chat_type === 'channel') {
+        // Для каналов используем chat_instance как chatId
+        session.chatId = ctx.inlineQuery.chat_instance;
+    } else {
+        // Для групп и супергрупп также используем chat_instance
+        session.chatId = ctx.inlineQuery.chat_instance;
+    }
+    
+    log('Определен chatId для сессии', {
+        chatId: session.chatId,
+        chatType: ctx.inlineQuery.chat_type
+    });
+    
     saveSession(ctx.from.id, session);
     log('Сохранена сессия для inline запроса', session);
     
