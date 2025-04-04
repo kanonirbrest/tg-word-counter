@@ -366,7 +366,7 @@ bot.on('message', async (ctx) => {
             console.log('Отправляю обработанное голосовое сообщение...');
             
             // Определяем, куда отправлять сообщение
-            const targetChatId = session.chatId || ctx.chat.id;
+            const targetChatId = session.chatId || ctx.from.id;
             console.log('Отправка в чат:', targetChatId);
             console.log('Тип чата:', ctx.chat.type);
             
@@ -511,8 +511,8 @@ bot.on('callback_query', async (ctx) => {
                 session.chatId = ctx.from.id;
                 console.log('Это личная переписка, сохраняю chatId:', session.chatId);
             } else {
-                // В групповом чате используем ID чата или ID пользователя
-                session.chatId = ctx.chat ? ctx.chat.id : ctx.from.id;
+                // В групповом чате используем ID чата
+                session.chatId = ctx.chat.id;
                 console.log('Это групповой чат, сохраняю chatId:', session.chatId);
             }
             
