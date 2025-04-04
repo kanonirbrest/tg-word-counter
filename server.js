@@ -405,7 +405,10 @@ bot.on('inline_query', async (ctx) => {
                 message_text: '🎤 Выбран эффект: Грубый голос\n\nОтправьте голосовое сообщение для обработки'
             },
             reply_markup: {
-                inline_keyboard: [[{ text: 'Выбрать', callback_data: 'record_distortion' }]]
+                inline_keyboard: [[{ 
+                    text: '🎤 Отправить голосовое', 
+                    callback_data: 'record_distortion'
+                }]]
             }
         },
         {
@@ -417,7 +420,10 @@ bot.on('inline_query', async (ctx) => {
                 message_text: '🎤 Выбран эффект: Тихий голос\n\nОтправьте голосовое сообщение для обработки'
             },
             reply_markup: {
-                inline_keyboard: [[{ text: 'Выбрать', callback_data: 'record_volume' }]]
+                inline_keyboard: [[{ 
+                    text: '🎤 Отправить голосовое', 
+                    callback_data: 'record_volume'
+                }]]
             }
         },
         {
@@ -429,7 +435,10 @@ bot.on('inline_query', async (ctx) => {
                 message_text: '🎤 Выбран эффект: Эхо\n\nОтправьте голосовое сообщение для обработки'
             },
             reply_markup: {
-                inline_keyboard: [[{ text: 'Выбрать', callback_data: 'record_echo' }]]
+                inline_keyboard: [[{ 
+                    text: '🎤 Отправить голосовое', 
+                    callback_data: 'record_echo'
+                }]]
             }
         }
     ];
@@ -437,7 +446,10 @@ bot.on('inline_query', async (ctx) => {
     console.log('Подготовлено результатов:', results.length);
     console.log('Отправляю результаты inline запроса...');
     try {
-        await ctx.answerInlineQuery(results);
+        await ctx.answerInlineQuery(results, {
+            cache_time: 0,
+            is_personal: true
+        });
         console.log('✅ Результаты успешно отправлены');
     } catch (error) {
         console.error('❌ Ошибка при отправке результатов:', error);
@@ -470,7 +482,7 @@ bot.on('callback_query', async (ctx) => {
             
             // Отвечаем на callback запрос
             console.log('Отправляю ответ на callback запрос...');
-            await ctx.answerCbQuery(`Выбран эффект: ${filterType}`);
+            await ctx.answerCbQuery(`Готов к обработке голосового сообщения с эффектом: ${filterType}`);
             console.log('✅ Ответ на callback запрос отправлен');
             
             // Проверяем, является ли это inline запросом
@@ -481,7 +493,7 @@ bot.on('callback_query', async (ctx) => {
                 // Обновляем сообщение в inline режиме
                 console.log('Обновляю сообщение в inline режиме...');
                 try {
-                    await ctx.editMessageText('🎤 Выбран эффект: ' + filterType + '\n\nОтправьте голосовое сообщение для обработки');
+                    await ctx.editMessageText('🎤 Выбран эффект: ' + filterType + '\n\nТеперь отправьте голосовое сообщение для обработки');
                     console.log('✅ Сообщение успешно обновлено');
                 } catch (error) {
                     console.error('❌ Ошибка при обновлении сообщения:', error);
