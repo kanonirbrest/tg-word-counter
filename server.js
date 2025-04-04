@@ -118,6 +118,17 @@ const inlineQueryOptions = [
                 { text: '🎤 Записать голосовое', callback_data: 'record_distortion' }
             ]]
         }
+    },
+    {
+        id: '8',
+        title: 'Автотюн',
+        description: 'Добавить эффект автотюна к голосу',
+        messageText: '🎤 Выберите эффект для голосового сообщения',
+        replyMarkup: {
+            inline_keyboard: [[
+                { text: '🎤 Записать голосовое', callback_data: 'record_autotune' }
+            ]]
+        }
     }
 ];
 
@@ -185,6 +196,9 @@ async function applyAudioFilter(inputFile, filterType) {
                 break;
             case 'echo':
                 audioEffects = ['echo:1.0:1.0:1.0'];
+                break;
+            case 'autotune':
+                audioEffects = ['pitch:0.5', 'volume:1.5'];
                 break;
             default:
                 audioEffects = ['volume:1.0'];
@@ -455,6 +469,21 @@ bot.on('inline_query', async (ctx) => {
                 inline_keyboard: [[{ 
                     text: '🎤 Отправить голосовое', 
                     callback_data: 'record_echo'
+                }]]
+            }
+        },
+        {
+            type: 'article',
+            id: 'autotune',
+            title: 'Автотюн',
+            description: 'Добавить эффект автотюна к голосу',
+            input_message_content: {
+                message_text: '🎤 Выбран эффект: Автотюн\n\nОтправьте голосовое сообщение для обработки'
+            },
+            reply_markup: {
+                inline_keyboard: [[{ 
+                    text: '🎤 Отправить голосовое', 
+                    callback_data: 'record_autotune'
                 }]]
             }
         }
