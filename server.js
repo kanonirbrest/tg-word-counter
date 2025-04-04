@@ -410,22 +410,25 @@ bot.on('inline_query', async (ctx) => {
     // Определяем chatId в зависимости от типа чата
     if (ctx.inlineQuery.chat_type === 'private') {
         session.chatId = ctx.from.id;
-    } else if (ctx.inlineQuery.chat_type === 'channel') {
-        session.chatId = ctx.inlineQuery.chat_instance;
     } else {
+        // Для каналов и групп используем chat_instance
         session.chatId = ctx.inlineQuery.chat_instance;
     }
     
+    // Сохраняем тип чата для дальнейшего использования
+    session.chatType = ctx.inlineQuery.chat_type;
+    
     log('Определен chatId для сессии', {
         chatId: session.chatId,
-        chatType: ctx.inlineQuery.chat_type,
+        chatType: session.chatType,
         chatInstance: ctx.inlineQuery.chat_instance
     });
     
     saveSession(ctx.from.id, session);
     log('Сохранена сессия для inline запроса', {
         session,
-        chatId: session.chatId
+        chatId: session.chatId,
+        chatType: session.chatType
     });
     
     const results = [
@@ -508,7 +511,8 @@ bot.on('callback_query', async (ctx) => {
     log('Получен callback запрос', {
         userId: ctx.from.id,
         data: ctx.callbackQuery.data,
-        chatType: ctx.callbackQuery.chat_type
+        chatType: ctx.callbackQuery.chat_type,
+        message: ctx.callbackQuery.message
     });
     
     try {
@@ -521,12 +525,26 @@ bot.on('callback_query', async (ctx) => {
             const session = getSession(ctx.from.id);
             session.filterType = filterType;
             
+            // Если chatId не установлен, устанавливаем его
             if (!session.chatId) {
-                session.chatId = ctx.from.id;
+                if (ctx.callbackQuery.message) {
+                    // Если есть сообщение, берем chatId из него
+                    session.chatId = ctx.callbackQuery.message.chat.id;
+                    session.chatType = ctx.callbackQuery.message.chat.type;
+                } else {
+                    // Если сообщения нет (inline режим), используем chat_instance
+                    session.chatId = ctx.callbackQuery.chat_instance;
+                    session.chatType = ctx.callbackQuery.chat_type;
+                }
             }
             
+            log('Сохранение сессии с новым типом фильтра', {
+                session,
+                chatId: session.chatId,
+                chatType: session.chatType
+            });
+            
             saveSession(ctx.from.id, session);
-            log('Сохранена сессия с новым типом фильтра', session);
             
             await ctx.answerCbQuery(`Готов к обработке голосового сообщения с эффектом: ${filterType}`);
             log('Отправлен ответ на callback запрос');
