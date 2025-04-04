@@ -569,6 +569,92 @@ bot.on('callback_query', async (ctx) => {
     }
 });
 
+// Обработка голосовых сообщений
+bot.on('voice', async (ctx) => {
+    log('Получено голосовое сообщение', {
+        userId: ctx.from.id,
+        chatId: ctx.chat.id,
+        chatType: ctx.chat.type,
+        messageId: ctx.message.message_id
+    });
+    
+    try {
+        // Получаем сессию
+        const session = getSession(ctx.from.id);
+        log('Проверка сессии', { 
+            session,
+            chatId: session.chatId,
+            filterType: session.filterType
+        });
+        
+        // Проверяем наличие типа фильтра
+        if (!session.filterType) {
+            log('Тип фильтра не установлен в сессии');
+            await ctx.reply('Пожалуйста, сначала выберите эффект через inline режим.');
+            return;
+        }
+        
+        // Скачиваем файл
+        const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
+        const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
+        
+        log('Начало скачивания файла', {
+            fileUrl,
+            filePath: file.file_path
+        });
+        
+        const inputPath = await downloadFile(fileUrl);
+        log('Файл успешно скачан', { inputPath });
+        
+        // Применяем эффект
+        log('Начало применения эффекта', { 
+            filterType: session.filterType,
+            inputPath
+        });
+        
+        const outputPath = await applyAudioFilter(inputPath, session.filterType);
+        log('Эффект успешно применен', { 
+            outputPath,
+            filterType: session.filterType
+        });
+        
+        // Загружаем на Cloudinary
+        log('Начало загрузки на Cloudinary', { outputPath });
+        
+        const result = await cloudinary.uploader.upload(outputPath, {
+            resource_type: 'video',
+            folder: 'audio_effects'
+        });
+        
+        log('Файл успешно загружен на Cloudinary', { 
+            url: result.secure_url
+        });
+        
+        // Отправляем обработанное аудио
+        log('Отправка обработанного аудио', {
+            chatId: ctx.chat.id,
+            chatType: ctx.chat.type
+        });
+        
+        await ctx.replyWithVoice(result.secure_url);
+        log('Обработанное аудио успешно отправлено');
+        
+        // Очищаем временные файлы
+        fs.unlinkSync(inputPath);
+        fs.unlinkSync(outputPath);
+        log('Временные файлы удалены');
+        
+    } catch (error) {
+        log('Ошибка при обработке голосового сообщения', { 
+            error: error.message, 
+            stack: error.stack,
+            chatId: ctx.chat.id,
+            chatType: ctx.chat.type
+        });
+        await ctx.reply('Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
+    }
+});
+
 // Запускаем бота
 console.log('Запускаю бота...');
 const startBot = async () => {
