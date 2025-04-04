@@ -530,18 +530,16 @@ bot.on('callback_query', async (ctx) => {
                 if (ctx.callbackQuery.message) {
                     // Если есть сообщение, берем chatId из него
                     session.chatId = ctx.callbackQuery.message.chat.id;
-                    session.chatType = ctx.callbackQuery.message.chat.type;
                 } else {
                     // Если сообщения нет (inline режим), используем chat_instance
                     session.chatId = ctx.callbackQuery.chat_instance;
-                    session.chatType = ctx.callbackQuery.chat_type;
                 }
             }
             
             log('Сохранение сессии с новым типом фильтра', {
                 session,
                 chatId: session.chatId,
-                chatType: session.chatType
+                currentChatType: ctx.callbackQuery.chat_type
             });
             
             saveSession(ctx.from.id, session);
