@@ -193,6 +193,9 @@ async function applyAudioFilter(inputFile, filterType) {
             case 'autotune':
                 ffmpegCommand += '-af "asetrate=44100*0.5,aresample=44100" ';
                 break;
+            case 'robot':
+                ffmpegCommand += '-af "afftfilt=real=\'hypot(re,im)*sin(0)\':imag=\'hypot(re,im)*cos(0)\':win_size=512:overlap=0.75" ';
+                break;
             default:
                 ffmpegCommand += '-af "volume=1.0" ';
         }
@@ -465,6 +468,21 @@ bot.on('inline_query', async (ctx) => {
                 inline_keyboard: [[{ 
                     text: '🎤 Отправить голосовое', 
                     callback_data: 'record_autotune'
+                }]]
+            }
+        },
+        {
+            type: 'article',
+            id: 'robot',
+            title: '🤖 Робот',
+            description: 'Сделать голос роботизированным',
+            input_message_content: {
+                message_text: '🎤 Выбран эффект: Робот\n\nОтправьте голосовое сообщение для обработки'
+            },
+            reply_markup: {
+                inline_keyboard: [[{ 
+                    text: '🎤 Отправить голосовое', 
+                    callback_data: 'record_robot'
                 }]]
             }
         }
