@@ -156,8 +156,8 @@ const inlineQueryOptions = [
 ];
 
 // Функция для скачивания файла
-async function downloadFile(fileId, fileName) {
-    log('Начало скачивания файла', { fileId, fileName });
+async function downloadFile(fileId) {
+    log('Начало скачивания файла', { fileId });
     try {
         const file = await bot.telegram.getFile(fileId);
         log('Получена информация о файле', file);
@@ -172,18 +172,19 @@ async function downloadFile(fileId, fileName) {
             responseType: 'stream'
         });
         
+        const fileName = path.join(tempDir, `${fileId}.ogg`);
         const writer = fs.createWriteStream(fileName);
-        response.data.pipe(writer);
         
         return new Promise((resolve, reject) => {
             writer.on('finish', () => {
                 log('Файл успешно скачан', { fileName, size: fs.statSync(fileName).size });
-                resolve();
+                resolve(fileName);
             });
             writer.on('error', (err) => {
                 log('Ошибка при скачивании файла', { error: err.message });
                 reject(err);
             });
+            response.data.pipe(writer);
         });
     } catch (error) {
         log('Ошибка при скачивании файла', { error: error.message, stack: error.stack });
@@ -412,7 +413,7 @@ bot.on('message', async (ctx) => {
                 filePath: file.file_path
             });
             
-            const inputPath = await downloadFile(fileUrl);
+            const inputPath = await downloadFile(ctx.message.voice.file_id);
             log('Файл успешно скачан', { inputPath });
             
             // Применяем эффект
@@ -465,6 +466,101 @@ bot.on('message', async (ctx) => {
             });
             await ctx.reply('Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
         }
+    }
+});
+
+// Обработка голосовых сообщений
+bot.on('voice', async (ctx) => {
+    log('=== Получено голосовое сообщение через обработчик voice ===', {
+        userId: ctx.from.id,
+        chatId: ctx.chat.id,
+        chatType: ctx.chat.type,
+        messageId: ctx.message.message_id,
+        fileId: ctx.message.voice.file_id,
+        duration: ctx.message.voice.duration,
+        mimeType: ctx.message.voice.mime_type
+    });
+    
+    try {
+        const session = getSession(ctx.from.id);
+        log('Проверка сессии', { 
+            session,
+            chatId: session?.chatId,
+            filterType: session?.filterType,
+            chatType: session?.chatType
+        });
+        
+        if (!session?.filterType) {
+            log('ОШИБКА: Тип фильтра не установлен в сессии');
+            await ctx.reply('Пожалуйста, сначала выберите эффект через inline режим.');
+            return;
+        }
+        
+        // Скачиваем файл
+        log('Начало скачивания файла', {
+            fileId: ctx.message.voice.file_id
+        });
+        
+        const file = await ctx.telegram.getFile(ctx.message.voice.file_id);
+        const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
+        
+        log('Получена информация о файле', {
+            fileUrl,
+            filePath: file.file_path
+        });
+        
+        const inputPath = await downloadFile(ctx.message.voice.file_id);
+        log('Файл успешно скачан', { inputPath });
+        
+        // Применяем эффект
+        log('Начало применения эффекта', { 
+            filterType: session.filterType,
+            inputPath
+        });
+        
+        const outputPath = await applyAudioFilter(inputPath, session.filterType);
+        log('Эффект успешно применен', { 
+            outputPath,
+            filterType: session.filterType
+        });
+        
+        // Загружаем на Cloudinary
+        log('Начало загрузки на Cloudinary', { outputPath });
+        
+        const result = await cloudinary.uploader.upload(outputPath, {
+            resource_type: 'video',
+            folder: 'audio_effects'
+        });
+        
+        log('Файл успешно загружен на Cloudinary', { 
+            url: result.secure_url
+        });
+        
+        // Отправляем обработанное аудио
+        log('Отправка обработанного аудио', {
+            chatId: ctx.chat.id,
+            chatType: ctx.chat.type,
+            url: result.secure_url
+        });
+        
+        await ctx.replyWithVoice(result.secure_url);
+        log('Обработанное аудио успешно отправлено');
+        
+        // Очищаем временные файлы
+        fs.unlinkSync(inputPath);
+        fs.unlinkSync(outputPath);
+        log('Временные файлы удалены');
+        
+        log('=== Обработка голосового сообщения завершена успешно ===');
+        
+    } catch (error) {
+        log('ОШИБКА при обработке голосового сообщения', { 
+            error: error.message, 
+            stack: error.stack,
+            chatId: ctx.chat.id,
+            chatType: ctx.chat.type
+        });
+        await ctx.reply('Произошла ошибка при обработке голосового сообщения. Пожалуйста, попробуйте еще раз.');
     }
 });
 
@@ -687,10 +783,10 @@ const startBot = async () => {
             try {
                 // Указываем, какие типы обновлений мы хотим получать
                 await bot.launch({
-                    allowed_updates: ['message', 'callback_query', 'inline_query']
+                    allowed_updates: ['message', 'callback_query', 'inline_query', 'voice', 'audio', 'document']
                 });
                 console.log('Бот успешно запущен');
-                console.log('Получаем обновления: message, callback_query, inline_query');
+                console.log('Получаем обновления: message, callback_query, inline_query, voice, audio, document');
                 break;
             } catch (error) {
                 retryCount++;
