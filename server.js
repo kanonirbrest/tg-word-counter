@@ -504,7 +504,18 @@ bot.on('callback_query', async (ctx) => {
             const session = getSession(ctx.from.id);
             console.log('Текущая сессия до изменения:', session);
             session.filterType = filterType;
-            session.chatId = ctx.callbackQuery.chat_type === 'private' ? ctx.from.id : (ctx.chat ? ctx.chat.id : ctx.from.id); // Используем ctx.from.id для личной переписки
+            
+            // Определяем тип чата и сохраняем соответствующий chatId
+            if (ctx.callbackQuery.chat_type === 'private') {
+                // В личной переписке используем ID пользователя
+                session.chatId = ctx.from.id;
+                console.log('Это личная переписка, сохраняю chatId:', session.chatId);
+            } else {
+                // В групповом чате используем ID чата или ID пользователя
+                session.chatId = ctx.chat ? ctx.chat.id : ctx.from.id;
+                console.log('Это групповой чат, сохраняю chatId:', session.chatId);
+            }
+            
             saveSession(ctx.from.id, session);
             console.log('Сессия после установки:', session);
             
