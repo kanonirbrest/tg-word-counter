@@ -177,13 +177,13 @@ async function applyAudioFilter(inputFile, filterType) {
 
         switch(filterType) {
             case 'distortion':
-                audioEffects = ['distortion:20'];
+                audioEffects = ['distortion:100'];
                 break;
             case 'volume':
-                audioEffects = ['volume:0.5'];
+                audioEffects = ['volume:0.1'];
                 break;
             case 'echo':
-                audioEffects = ['echo:0.5:0.5:0.5'];
+                audioEffects = ['echo:1.0:1.0:1.0'];
                 break;
             default:
                 audioEffects = ['volume:1.0'];
